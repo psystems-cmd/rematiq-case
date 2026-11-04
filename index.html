@@ -277,11 +277,192 @@ const DATA = {
 };
 
 // PAS: SECTION 3 · Triage rules
+// PAS: WHY this order is also the board's sort order: most urgent first, done last
+const LEVELS = ['red', 'orange', 'purple', 'greenOutline', 'green'];
+const LEVEL_LABEL = {
+  red: 'Applies, no SOP',
+  orange: 'SOP exists, not assessed',
+  purple: 'Unclear, needs expert',
+  greenOutline: 'Not applicable, sign-off needed',
+  green: 'Done',
+};
+
+function daysLeft(iso) {
+  return Math.round((Date.parse(iso) - Date.parse(DATA.today)) / 86400000);
+}
+
+// PAS: WHY dates already passed show "overdue" instead of a negative number
+function deadlineChip(iso) {
+  const days = daysLeft(iso);
+  return days < 0 ? '<span class="chip overdue">overdue</span>' : `<span class="chip">${days} days</span>`;
+}
+
+function sopCovering(reqId) {
+  return DATA.sops.find(s => s.covers.includes(reqId));
+}
+
+// PAS: SIMULATED the "AI call" is a fixed rule plus fixed reasoning text, no model call
+function aiCall(p, r) {
+  // PAS: WHY no battery means not applicable for every requirement: the regulation only reaches batteries
+  if (!p.hasBattery) {
+    return { applies: false, colour: 'greenOutline',
+      reasoning: `${p.name} has no battery (${p.battery}). The Battery Regulation does not reach it.` };
+  }
+  // PAS: WHY R7 and R8 are not applicable: they cover other battery types, never portable ones
+  if (r.portable === 'not-applicable') {
+    return { applies: false, colour: 'greenOutline',
+      reasoning: `${p.name} has a portable battery. ${r.article} only covers ${r.scopeText}.` };
+  }
+  if (r.id === 'R5') return removabilityCall(p);
+  return readinessCall(p, r);
+}
+
+function removabilityCall(p) {
+  // PAS: WHY a battery that is already user-changeable likely meets Art. 11 by design
+  if (p.userChangeable) {
+    return { applies: true, colour: 'green',
+      reasoning: `The battery in ${p.name} is already user-changeable, so Art. 11 is likely met by design.` };
+  }
+  // PAS: WHY built-in battery on a continuously used device: an exemption for continuous power may apply, an expert decides
+  if (p.continuousUse) {
+    return { applies: true, colour: 'purple',
+      reasoning: `${p.name} has a built-in battery and is used continuously. Art. 11(3) lists exemptions that may cover it; Regulatory Affairs must decide.` };
+  }
+  // PAS: WHY otherwise removability applies and the fix is a design change, so the case goes to R&D
+  return { applies: true, colour: 'red', productChange: true,
+    reasoning: `${p.name} has a built-in battery and no exemption is in sight. Making it removable is a product change, not a document change.` };
+}
+
+function readinessCall(p, r) {
+  const sop = sopCovering(r.id);
+  // PAS: WHY no SOP addresses the requirement: red, someone must write or extend one
+  if (!sop) {
+    return { applies: true, colour: 'red',
+      reasoning: `${r.title} applies to the portable battery in ${p.name}. No SOP in the library addresses it.` };
+  }
+  // PAS: WHY an SOP that already passed a detailed assessment means done
+  if (sop.assessed.includes(r.id)) {
+    return { applies: true, colour: 'green',
+      reasoning: `${r.title} applies to ${p.name}. ${sop.id} covers it and passed a detailed assessment.` };
+  }
+  return { applies: true, colour: 'orange',
+    reasoning: `${r.title} applies to ${p.name}. ${sop.id} addresses it, but no detailed assessment has checked it yet.` };
+}
+
+// PAS: WHY assumed facts lower confidence; an assumed "no battery" is the one fact that could hide a wrong "not applicable"
+function confidenceFor(p, call) {
+  if (call.colour === 'purple') return 'low';
+  if (p.batteryTag !== 'A') return 'high';
+  return p.hasBattery ? 'medium' : 'low';
+}
+
+function buildCase(p, r) {
+  const call = aiCall(p, r);
+  call.confidence = confidenceFor(p, call);
+  // PAS: DEMO a "not applicable" never rests on an assumed fact: low confidence turns the call purple
+  if (call.confidence === 'low' && call.colour !== 'purple') {
+    call.colour = 'purple';
+    call.reasoning += ' This fact is assumed, not verified, so the AI does not call it not applicable.';
+  }
+  return { id: p.id + '-' + r.id, productId: p.id, reqId: r.id, ai: call,
+    colour: call.colour, owner: null, confirmed: false, signedBy: null };
+}
+
+function buildCases() {
+  const cases = {};
+  DATA.products.forEach(p => {
+    DATA.requirements.forEach(r => {
+      const c = buildCase(p, r);
+      cases[c.id] = c;
+    });
+  });
+  return cases;
+}
+
+// Routing rules: who takes the case next, and why
+function suggestOwner(c) {
+  const r = requirement(c.reqId);
+  if (c.colour === 'green') return null;
+  // PAS: WHY a product change goes to R&D: the fix is a design change; Q&R keeps tracking it
+  if (c.ai.productChange && c.colour === 'red') {
+    return { owner: 'tobias', reason: 'Fix is a design change; Q&R keeps tracking it' };
+  }
+  if (c.colour === 'purple') return { owner: 'jonas', reason: 'Interprets unclear rules' };
+  if (c.colour === 'greenOutline') return { owner: 'jonas', reason: 'Signs off not applicable' };
+  if (c.colour === 'orange' && sopCovering(r.id)) {
+    const sop = sopCovering(r.id);
+    return { owner: sop.owner, reason: `Owns ${sop.id}; runs the Detailed Assessment` };
+  }
+  if (c.colour === 'red' && r.starter) {
+    return { owner: r.starter.owner, reason: `Owns ${r.starter.extendSop}` };
+  }
+  return { owner: 'jonas', reason: 'No SOP owner known; Regulatory Affairs decides' };
+}
+
+// Evidence shown on a case: the product fact, the regulation text, and the SOP search
+function productEvidenceId(p) {
+  return p.evidence || 'ev-' + p.id;
+}
+
+function evidenceIds(c) {
+  const p = product(c.productId);
+  const r = requirement(c.reqId);
+  const ids = [productEvidenceId(p)];
+  if (!p.hasBattery) return ids;
+  ids.push(r.evidence);
+  if (r.portable === 'not-applicable') ids.push('ev-art3');
+  if (r.sopSearch) ids.push('sop-' + r.id);
+  return ids;
+}
+
+// Most cards live in DATA.evidence; product facts without a public source and SOP searches are built here
+function getEvidence(id) {
+  if (DATA.evidence[id]) return DATA.evidence[id];
+  if (id.startsWith('sop-')) {
+    const r = requirement(id.slice(4));
+    // PAS: SIMULATED SOP search result over the illustrative SOP library
+    return { claim: `SOP search for ${r.id} ${r.short}`, excerpt: `Searched ${DATA.sops.length} SOPs. Closest match: ${r.sopSearch.closest}, ${r.sopSearch.finding}`,
+      location: 'SOP library', tag: 'I', status: 'Illustrative' };
+  }
+  const p = product(id.slice(3));
+  const where = p.sku ? `philips.de catalogue, ${p.sku}` : 'No catalogue match';
+  const note = p.batteryTag === 'A' ? 'Assumed from the product family; no public source matched yet.' : `Listed in the philips.de catalogue as ${p.use}.`;
+  return { claim: `${p.name}: ${p.battery}`, excerpt: null, note, location: where, tag: p.batteryTag, status: p.batteryTag === 'A' ? 'Assumed' : 'Catalogue listing' };
+}
 
 // PAS: SECTION 4 · State and helpers
+// PAS: WHY state lives in memory only: no database, no browser storage; reload or "Reset demo" starts over
+let state = freshState();
+
+function freshState() {
+  return {
+    cases: buildCases(),  // one case per product × requirement
+    checked: {},          // evidence id → true once a human ticked "Checked"
+    sopRequests: [],      // requests created from the new-SOP starter
+    starterMode: {},      // requirement id → 'extend' or 'create'
+    openGroup: null,      // routing group whose panel is open
+    mineOnly: false,      // "Needs my decision" filter on the board
+    log: [],              // audit log, newest first
+  };
+}
+
 function resetDemo() {
+  state = freshState();
   location.hash = '#intake';
   render();
+}
+
+function allCases() {
+  return Object.values(state.cases);
+}
+
+function caseName(c) {
+  return `${product(c.productId).name} × ${c.reqId}`;
+}
+
+function addLog(actor, text) {
+  const time = new Date().toLocaleTimeString('en-GB');
+  state.log.unshift({ time, actor, text });
 }
 
 function product(id) {
