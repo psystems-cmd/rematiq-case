@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pre-Assessment · Prototype</title>
+<link rel="icon" href="assets/icon.svg">
+<style>
+/* PAS: SECTION 1 · Styles */
+/* PAS: WHY colour is reserved for the five triage levels; everything else stays neutral */
+:root {
+  --bg: #f2f0f6;
+  --card: #ffffff;
+  --ink: #2e1a33;
+  --muted: #74687a;
+  --line: #e4e0ea;
+  --red: #d64541;
+  --orange: #ea8a2a;
+  --purple: #7c55c8;
+  --green: #2e9b68;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+a { color: inherit; }
+h1 { font-size: 26px; margin: 4px 0; }
+h2 { font-size: 18px; margin: 24px 0 8px; }
+.card h2 { margin-top: 4px; }
+main { max-width: 1180px; margin: 0 auto; padding: 24px 16px 64px; }
+
+.banner { position: sticky; top: 0; z-index: 1; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center;
+  padding: 8px 16px; background: var(--ink); color: #fff; font: 12px var(--mono); }
+.banner nav { display: flex; flex-wrap: wrap; gap: 4px; margin-left: auto; }
+.banner nav a { padding: 2px 10px; border-radius: 6px; text-decoration: none; opacity: .7; }
+.banner nav a.active { background: rgba(255, 255, 255, .18); opacity: 1; }
+.banner button { font: inherit; color: #fff; background: none; border: 1px solid rgba(255, 255, 255, .5); border-radius: 6px; padding: 2px 10px; cursor: pointer; }
+
+.label { font: 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.lead { color: var(--muted); margin: 0 0 20px; max-width: 760px; }
+.muted { color: var(--muted); }
+.small { font-size: 12px; }
+.big { font-size: 34px; font-weight: 700; line-height: 1.1; margin-top: 8px; }
+.card { background: var(--card); border-radius: 16px; padding: 18px 20px; margin-bottom: 16px; box-shadow: 0 1px 2px rgba(46, 26, 51, .06); }
+.grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+.btn { font: inherit; padding: 7px 16px; border-radius: 999px; border: 1px solid var(--ink); background: var(--ink); color: #fff; cursor: pointer; text-decoration: none; }
+.btn.ghost { background: transparent; color: var(--ink); }
+.btn:disabled { opacity: .3; cursor: not-allowed; }
+select, textarea { font: inherit; padding: 4px 8px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink); }
+textarea { width: 100%; min-height: 56px; }
+
+.badge { font: 10px var(--mono); text-transform: uppercase; padding: 0 5px; border: 1px solid var(--line); border-radius: 4px; color: var(--muted); white-space: nowrap; vertical-align: middle; }
+/* PAS: WHY simulated output gets a hatched background so it never looks like validated data */
+.badge.sim, .sim { background: repeating-linear-gradient(135deg, #fff 0 6px, #f1edf5 6px 12px); }
+.badge.sim { border-color: var(--ink); color: var(--ink); }
+.sim { border: 1px dashed var(--ink); }
+.chip { display: inline-block; padding: 1px 8px; border-radius: 999px; background: var(--bg); font: 11px var(--mono); white-space: nowrap; }
+.chip.overdue { background: var(--ink); color: #fff; }
+
+/* Triage levels: .lv is a small swatch, .cell is a matrix cell; the colour classes come last so they win */
+.lv { display: inline-block; width: 14px; height: 14px; border-radius: 4px; border: 2px solid transparent; vertical-align: middle; }
+.cell { display: inline-block; width: 40px; height: 28px; line-height: 24px; border-radius: 6px; border: 2px solid transparent; font: 10px var(--mono); color: #fff; text-decoration: none; }
+.cell.dim { opacity: .15; }
+.lv-red { background: var(--red); }
+.lv-orange { background: var(--orange); }
+.lv-purple { background: var(--purple); }
+.lv-greenOutline { background: #fff; border-color: var(--green); color: var(--green); }
+.lv-green { background: var(--green); }
+
+.scroll { overflow-x: auto; }
+.matrix { width: 100%; border-collapse: collapse; font-size: 13px; }
+.matrix th, .matrix td { padding: 6px 4px; border-bottom: 1px solid var(--line); text-align: center; vertical-align: top; }
+.matrix th:first-child, .matrix td:first-child { text-align: left; min-width: 180px; }
+.matrix tr.cat td { background: var(--bg); }
+
+.ev { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
+.ev.checked { border-color: var(--ink); }
+.ev blockquote { margin: 6px 0; padding-left: 10px; border-left: 3px solid var(--line); }
+.todo { margin: 6px 0; padding: 6px 10px; border: 1px dashed var(--muted); border-radius: 8px; font-style: italic; }
+
+table.list { width: 100%; border-collapse: collapse; font-size: 14px; }
+table.list th, table.list td { padding: 6px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+dl.form { display: grid; grid-template-columns: max-content 1fr; gap: 8px 16px; margin: 8px 0; }
+dl.form dt { font: 11px var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); padding-top: 3px; }
+dl.form dd { margin: 0; }
+
+@media (max-width: 640px) {
+  main { padding: 16px 10px 48px; }
+  .banner nav { margin-left: 0; }
+  dl.form { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="banner">
+  <span>Prototype: simulated AI output, illustrative internal data.</span>
+  <nav>
+    <a href="#intake">Intake</a>
+    <a href="#triage">Triage board</a>
+    <a href="#routing">Routing</a>
+    <a href="#handover">Handover</a>
+  </nav>
+  <button onclick="resetDemo()">Reset demo</button>
+</div>
+<main id="app"></main>
+
+<script>
+// PAS: SECTION 2 · Data
+
+// PAS: SECTION 3 · Triage rules
+
+// PAS: SECTION 4 · State and helpers
+function resetDemo() {
+  location.hash = '#intake';
+  render();
+}
+
+// PAS: SECTION 5 · Screens
+function placeholder(title) {
+  return `<h1>${title}</h1><p class="lead">This screen comes in a later step.</p>`;
+}
+
+// PAS: SECTION 6 · Router
+// PAS: WHY hash links: every screen has its own address so the presenter can jump, and it works from disk
+const SCREENS = {
+  intake: () => placeholder('Intake'),
+  triage: () => placeholder('Triage board'),
+  case: () => placeholder('Case review'),
+  routing: () => placeholder('Routing'),
+  handover: () => placeholder('Handover'),
+};
+
+// PAS: WHY screens return HTML strings: all text comes from DATA in this file; the one typed field (override reason) is escaped with esc()
+function render() {
+  const [name, arg] = location.hash.replace('#', '').split('/');
+  const screen = SCREENS[name] ? name : 'intake';
+  document.getElementById('app').innerHTML = SCREENS[screen](arg);
+  // The case review belongs to the triage board, so the board stays highlighted in the nav
+  const navTarget = screen === 'case' ? 'triage' : screen;
+  document.querySelectorAll('nav a').forEach(link => {
+    link.classList.toggle('active', link.getAttribute('href') === '#' + navTarget);
+  });
+}
+
+window.addEventListener('hashchange', () => {
+  render();
+  window.scrollTo(0, 0);
+});
+render();
+</script>
+</body>
+</html>
