@@ -422,12 +422,12 @@ function getEvidence(id) {
     const r = requirement(id.slice(4));
     // PAS: SIMULATED SOP search result over the illustrative SOP library
     return { claim: `SOP search for ${r.id} ${r.short}`, excerpt: `Searched ${DATA.sops.length} SOPs. Closest match: ${r.sopSearch.closest}, ${r.sopSearch.finding}`,
-      location: 'SOP library', tag: 'I', status: 'Illustrative' };
+      location: 'SOP library', tag: 'I', status: 'Simulated search over an illustrative library' };
   }
   const p = product(id.slice(3));
   const where = p.sku ? `philips.de catalogue, ${p.sku}` : 'No catalogue match';
   const note = p.batteryTag === 'A' ? 'Assumed from the product family; no public source matched yet.' : `Listed in the philips.de catalogue as ${p.use}.`;
-  return { claim: `${p.name}: ${p.battery}`, excerpt: null, note, location: where, tag: p.batteryTag, status: p.batteryTag === 'A' ? 'Assumed' : 'Catalogue listing' };
+  return { claim: `${p.name}: ${p.battery}`, excerpt: null, note, location: where, tag: p.batteryTag, status: p.batteryTag === 'A' ? 'No public source yet' : 'Catalogue listing' };
 }
 
 // PAS: WHY the board sorts by colour first, then by deadline: the most urgent open work comes first
@@ -658,12 +658,188 @@ function toggleMine() {
   render();
 }
 
+// ---- Screen 3 · Case review: one product × one requirement
+
+function evidenceHtml(id) {
+  const ev = getEvidence(id);
+  const checked = state.checked[id];
+  // PAS: TODO a placeholder card shows until the exact EUR-Lex text is pasted into DATA.evidence
+  const body = ev.excerpt
+    ? `<blockquote>“${ev.excerpt}”</blockquote>`
+    : `<p class="todo">${ev.note || 'Paste exact text from EUR-Lex.'}</p>`;
+  const link = ev.url ? ` · <a href="${ev.url}" target="_blank" rel="noopener">Open source</a>` : '';
+  return `
+    <div class="ev ${checked ? 'checked' : ''}">
+      <div class="row"><b>${ev.claim}</b> ${badge(ev.tag)} <span class="small muted">${ev.status}</span></div>
+      ${body}
+      <div class="small muted">${ev.location} · retrieved ${DATA.catalogue.date}${link}</div>
+      <label class="small"><input type="checkbox" ${checked ? 'checked' : ''} onchange="toggleChecked('${id}')"> Checked</label>
+    </div>`;
+}
+
+function ownerOptions(selectedId) {
+  const options = Object.keys(DATA.people).map(id =>
+    `<option value="${id}" ${id === selectedId ? 'selected' : ''}>${personName(id)}</option>`).join('');
+  return `<option value="">Choose owner…</option>${options}`;
+}
+
+function renderCase(id) {
+  const c = state.cases[id];
+  if (!c) return renderTriage();
+  const p = product(c.productId);
+  const r = requirement(c.reqId);
+  const ids = evidenceIds(c);
+  const sopIds = ids.filter(e => e.startsWith('sop-'));
+  const otherIds = ids.filter(e => !e.startsWith('sop-'));
+  const checkedCount = ids.filter(e => state.checked[e]).length;
+  // PAS: DEMO confirm stays locked until every evidence card on the case is ticked "Checked"
+  const allChecked = checkedCount === ids.length;
+  const changeable = p.hasBattery ? `
+        <dt>User-changeable</dt><dd>${p.userChangeable ? 'Yes ' + badge('P') : 'Not confirmed ' + badge('A')}</dd>` : '';
+  return `
+    <p><a href="#triage">← Back to board</a></p>
+    <div class="label">Case review · ${c.id}</div>
+    <h1>${p.name} · ${r.id} ${r.title}</h1>
+    <div class="row">
+      <span class="lv lv-${c.colour}"></span> ${LEVEL_LABEL[c.colour]}
+      ${c.confirmed ? '<span class="muted">· confirmed by Anke Weber</span>' : ''}
+      ${c.signedBy ? `<span class="muted">· not applicable signed by ${c.signedBy}</span>` : ''}
+    </div>
+    <div class="grid" style="margin-top: 16px">
+      <div class="card">
+        <div class="label">Product facts</div>
+        <dl class="form">
+          <dt>SKU</dt><dd>${p.sku ? p.sku + ' ' + badge('P') : 'not matched'}</dd>
+          <dt>Use</dt><dd>${p.use} ${badge(p.sku ? 'P' : 'A')}</dd>
+          <dt>Battery</dt><dd>${p.battery} ${badge(p.batteryTag)}</dd>${changeable}
+        </dl>
+      </div>
+      <div class="card">
+        <div class="label">Requirement · ${r.article}</div>
+        <p>${r.plain} ${badge('R')}</p>
+        <p class="small">Effective ${fmtDate(r.from)} ${deadlineChip(r.from)}</p>
+      </div>
+    </div>
+    <div class="card sim">
+      <div class="label">AI reasoning ${badge('S')}</div>
+      <p>${c.ai.reasoning}</p>
+      <p class="small">AI call: <span class="lv lv-${c.ai.colour}"></span> ${LEVEL_LABEL[c.ai.colour]} · confidence <b>${c.ai.confidence}</b></p>
+    </div>
+    ${sopIds.length ? `<div class="card"><div class="label">SOP search</div>${sopIds.map(evidenceHtml).join('')}</div>` : ''}
+    <div class="card">
+      <div class="label">Evidence</div>
+      ${otherIds.map(evidenceHtml).join('')}
+    </div>
+    ${decisionHtml(c, allChecked, `${checkedCount} of ${ids.length} evidence cards checked.`)}`;
+}
+
+function decisionHtml(c, allChecked, checkedText) {
+  const suggestion = suggestOwner(c);
+  const notApplicable = c.colour === 'greenOutline';
+  const changeOptions = ['red', 'orange', 'green'].map(level =>
+    `<option value="${level}" ${level === c.colour ? 'selected' : ''}>${LEVEL_LABEL[level]}</option>`).join('');
+  const signButton = notApplicable
+    ? `<button class="btn ghost" ${allChecked ? '' : 'disabled'} onclick="signCase('${c.id}')">Sign off as Jonas Richter (simulated)</button>`
+    : '';
+  const changeRow = notApplicable ? '' : `
+      <dt>Change</dt>
+      <dd class="row"><select id="change-level">${changeOptions}</select>
+        <button class="btn ghost" onclick="changeCase('${c.id}')">Change readiness</button></dd>`;
+  return `
+    <div class="card">
+      <div class="label">Decision · Anke Weber, Q&R Manager</div>
+      <div class="row" style="margin: 8px 0">
+        <button class="btn" ${allChecked && !c.confirmed ? '' : 'disabled'} onclick="confirmCase('${c.id}')">${c.confirmed ? 'Confirmed' : 'Confirm'}</button>
+        <button class="btn ghost" onclick="sendToExpert('${c.id}')">Send to expert</button>
+        ${signButton}
+        <span class="small muted">${checkedText} ${allChecked ? '' : 'Tick every card to unlock Confirm.'}</span>
+      </div>
+      <dl class="form">
+        <dt>Owner</dt>
+        <dd class="row"><select onchange="setOwner('${c.id}', this.value)">${ownerOptions(c.owner)}</select>
+          ${suggestion ? `<span class="small muted">Suggested: ${personName(suggestion.owner)} · ${suggestion.reason}</span>` : ''}</dd>
+        ${changeRow}
+        <dt>Override</dt>
+        <dd>
+          <textarea id="override-reason" placeholder="Written reason (required)"
+            oninput="document.getElementById('override-btn').disabled = !this.value.trim()"></textarea>
+          <button id="override-btn" class="btn ghost" disabled onclick="overrideCase('${c.id}')">
+            ${notApplicable ? 'Override: it applies' : 'Override: not applicable'}</button>
+        </dd>
+      </dl>
+    </div>`;
+}
+
+function toggleChecked(evidenceId) {
+  state.checked[evidenceId] = !state.checked[evidenceId];
+  render();
+}
+
+function confirmCase(id) {
+  const c = state.cases[id];
+  c.confirmed = true;
+  addLog('Anke Weber', `Confirmed ${caseName(c)} as "${LEVEL_LABEL[c.colour]}" after checking the evidence`);
+  render();
+}
+
+function changeCase(id) {
+  const c = state.cases[id];
+  const level = document.getElementById('change-level').value;
+  addLog('Anke Weber', `Changed ${caseName(c)} from "${LEVEL_LABEL[c.colour]}" to "${LEVEL_LABEL[level]}"`);
+  c.colour = level;
+  c.confirmed = true;
+  render();
+}
+
+// PAS: WHY reversing applicability needs a written reason: it is exactly what an auditor will ask about
+function overrideCase(id) {
+  const c = state.cases[id];
+  const reason = document.getElementById('override-reason').value.trim();
+  if (!reason) return;
+  const level = c.colour === 'greenOutline' ? 'red' : 'greenOutline';
+  addLog('Anke Weber', `Overrode ${caseName(c)} to "${LEVEL_LABEL[level]}". Reason: ${reason}`);
+  c.colour = level;
+  c.confirmed = true;
+  c.signedBy = null;
+  render();
+}
+
+function sendToExpert(id) {
+  const c = state.cases[id];
+  c.colour = 'purple';
+  c.owner = 'jonas';
+  addLog('Anke Weber', `Sent ${caseName(c)} to Jonas Richter for expert review`);
+  render();
+}
+
+function setOwner(id, personId) {
+  const c = state.cases[id];
+  c.owner = personId || null;
+  addLog('Anke Weber', `Set owner of ${caseName(c)} to ${personName(c.owner)}`);
+  render();
+}
+
+function signCase(id) {
+  signOff([state.cases[id]]);
+  render();
+}
+
+// PAS: SIMULATED Jonas signs inside Anke's screen; in the product he would sign in his own queue
+function signOff(cases) {
+  cases.forEach(c => {
+    c.colour = 'green';
+    c.owner = 'jonas';
+    c.signedBy = 'Jonas Richter';
+  });
+  addLog('Jonas Richter (simulated)', `Signed "not applicable" for ${cases.map(caseName).join(', ')}`);
+}
+
 // PAS: SECTION 6 · Router
 // PAS: WHY hash links: every screen has its own address so the presenter can jump, and it works from disk
 const SCREENS = {
   intake: renderIntake,
   triage: renderTriage,
-  case: () => placeholder('Case review'),
+  case: renderCase,
   routing: () => placeholder('Routing'),
   handover: () => placeholder('Handover'),
 };
