@@ -13,13 +13,16 @@ The demo follows Anke Weber (Q&R Manager, fictional, shown top right as the logg
 | Overview | `#home` | Regulations that need my attention and the product portfolio; click the EU Battery Regulation to start. |
 | Product page | `#product/P1` | One product's facts, evidence and status against every obligation. |
 | Regulatory alert | `#alert` | What came in (EU Battery Regulation), what it asks (8 obligations with dates) and which 12 products were checked, each with a link to its source. |
-| Assess and route | `#assess/R4` | Requirements on the left, grouped by topic; pick one to see the AI call, the open decisions grouped by outcome, and every product. |
-| Case review | `#assess/R4/P1` | One product × one requirement: facts with source links, AI reasoning, evidence cards; Confirm stays locked until every card is ticked. |
+| Assess and route | `#assess/R4` | Requirements on the left, grouped by topic; pick one to see every product once, grouped by outcome, with a decision button in each row. |
+| Case review | `#assess/R4/P1` | One product × one requirement: facts with source links, AI reasoning, evidence cards, overrides with a written reason, comments. |
 | Handover | `#handover` | Locked until every case is routed and every "not applicable" is signed; then the pre-filled Detailed Assessment overview, follow-up per team, and the audit log. |
 
 - **AI vs human:** blue blocks and `✦ AI` chips are simulated AI output; dark blocks and `✓ Human` chips are decisions by a named person. A legend sits under the top bar on every screen.
 - **Routing to teams:** each open decision suggests a team with the reason. Team cards show function, lead, members, SOPs owned, open cases and turnaround; "Compare all teams" shows them side by side. A case goes to a team queue or a named person.
-- **Sign-off:** only Regulatory Affairs can sign "not applicable". Switch to Jonas Richter in the account menu (top right) to sign.
+- **Deciding:** every row has its own buttons (Confirm, To expert, Sign off, Applies / Not applicable). Tick rows, or a whole section, to act on several at once; this works on the requirement view and on the product page.
+- **Roles:** Anke (Q&R) confirms and routes. Unclear and "not applicable" cases go straight to Regulatory Affairs. Log in as Jonas Richter (top right) to sign off or decide them; he never gets "To expert", because he is the expert.
+- **"Only what needs me":** filters the requirement list, the sections and the rows. For Anke: open cases not yet routed. For Jonas: unclear and "not applicable" cases in his queue.
+- **Evidence:** ticking evidence cards is optional; every decision records how many cards were checked, and the audit log shows it.
 - **Highlighted sources:** source links carry a browser text fragment, so Chrome jumps to the quoted words and highlights them.
 - **Comments:** on every requirement and every case; they also go into the audit log.
 

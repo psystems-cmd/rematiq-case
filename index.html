@@ -86,6 +86,8 @@ a.badge:hover { border-color: var(--ink); color: var(--ink); }
 .team { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: #fff; cursor: pointer; font-size: 13px; }
 .team.picked { border: 2px solid var(--ink); }
 .comment { border-top: 1px solid var(--line); padding: 6px 0; }
+tr.section td { background: var(--bg); }
+.bulkbar { position: sticky; top: 0; z-index: 1; background: #fff; padding: 8px 0; border-bottom: 1px solid var(--line); margin-bottom: 6px; }
 
 table.list { width: 100%; border-collapse: collapse; }
 table.list th, table.list td { padding: 6px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
@@ -309,11 +311,12 @@ const DATA = {
 // PAS: SECTION 3 · Rules: applicability, readiness, deadline, routing
 // PAS: WHY this order is also the sort order: most urgent first, done last
 const LEVELS = ['red', 'orange', 'purple', 'greenOutline', 'green'];
+// PAS: WHY labels say where the case stands and what happens next, in plain words
 const LEVEL_LABEL = {
-  red: 'Applies, no SOP',
-  orange: 'SOP exists, not assessed',
-  purple: 'Unclear, needs expert',
-  greenOutline: 'Not applicable, needs sign-off',
+  red: 'Gap: no SOP covers it',
+  orange: 'SOP found, detailed check needed',
+  purple: 'Unclear: expert decides',
+  greenOutline: 'Not applicable: awaiting sign-off',
   green: 'Done',
 };
 
@@ -381,9 +384,9 @@ function buildCase(p, r) {
     call.reasoning += ' This fact is assumed, not verified, so the AI does not call it not applicable.';
   }
   const c = { id: p.id + '-' + r.id, productId: p.id, reqId: r.id, ai: call, colour: call.colour,
-    team: null, assignee: null, routedBy: null, confirmed: null, signed: null };
-  // PAS: WHY "not applicable" goes straight to Regulatory Affairs: only they can sign it off
-  if (c.colour === 'greenOutline') { c.team = 'ra'; c.routedBy = 'ai'; }
+    team: null, assignee: null, routedBy: null, confirmed: null, signed: null, productChange: !!call.productChange };
+  // PAS: WHY "not applicable" and "unclear" go straight to Regulatory Affairs: only they can sign off or decide them
+  if (c.colour === 'greenOutline' || c.colour === 'purple') { c.team = 'ra'; c.routedBy = 'ai'; }
   return c;
 }
 
@@ -399,7 +402,7 @@ function buildCases() {
 // PAS: SIMULATED routing suggestion: fixed rules, shown with the reason so a human can judge it
 function suggestTeam(c) {
   const r = requirement(c.reqId);
-  if (c.ai.productChange && c.colour === 'red') return { team: 'rnd', reason: 'The fix is a product design change, not a document change. Q&R keeps tracking it.' };
+  if (c.productChange && c.colour === 'red') return { team: 'rnd', reason: 'The fix is a product design change, not a document change. Q&R keeps tracking it.' };
   if (c.colour === 'purple') return { team: 'ra', reason: 'Interprets unclear rules and exemptions.' };
   if (c.colour === 'greenOutline') return { team: 'ra', reason: 'Signs off every "not applicable".' };
   const sop = sopCovering(r.id);
@@ -448,12 +451,21 @@ function compareCases(a, b) {
 // PAS: WHY open cases of one requirement are grouped by outcome: nine products with the same QR-code gap are one decision
 function groupKind(c) {
   if (!product(c.productId).hasBattery) return 'no battery';
-  return c.ai.productChange && c.colour === 'red' ? 'product change' : '';
+  return c.productChange && c.colour === 'red' ? 'product change' : '';
 }
 
-function requirementGroups(reqId) {
+// Section title for a group: the outcome, made specific where the reason differs
+function sectionTitle(g) {
+  if (g.kind === 'product change') return 'Gap: needs a product change (R&D)';
+  if (g.kind === 'no battery' && g.colour === 'purple') return 'Unclear: "no battery" is only assumed';
+  if (g.kind === 'no battery' && g.colour === 'greenOutline') return 'Not applicable: product has no battery';
+  if (g.colour === 'greenOutline') return 'Not applicable: covers other battery types only';
+  return LEVEL_LABEL[g.colour];
+}
+
+function requirementGroups(reqId, includeDone) {
   const groups = [];
-  allCases().filter(c => c.reqId === reqId && c.colour !== 'green').sort(compareCases).forEach(c => {
+  allCases().filter(c => c.reqId === reqId && (includeDone || c.colour !== 'green')).sort(compareCases).forEach(c => {
     const key = `${reqId}|${c.colour}|${groupKind(c)}`;
     let group = groups.find(g => g.key === key);
     if (!group) {
@@ -477,6 +489,7 @@ function freshState() {
     comments: {},         // requirement or case id → list of comments
     picks: {},            // routing key → team picked but not yet routed
     teamsOpen: null,      // routing key whose full team list is open
+    selected: {},         // case id → true when its row is ticked for a bulk action
     starterMode: {},      // requirement id → 'extend' or 'create'
     sopRequests: [],      // requests created from the new-SOP starter
     mineOnly: false,      // "Only what needs me" filter
@@ -540,11 +553,10 @@ function aiBlock(title, body) {
 
 function humanChip(by, at) { return `<span class="human-chip">✓ Human</span> <b>${person(by).name}</b> <span class="small muted">${at}</span>`; }
 
-// "Only what needs me": Anke confirms and routes; Regulatory Affairs signs off and resolves unclear cases
+// PAS: WHY "needs me" differs per role: Q&R routes every open case; Regulatory Affairs signs off and decides unclear cases
 function needsMe(c) {
-  if (c.colour === 'green') return false;
-  if (me().team === 'ra') return c.team === 'ra';
-  return c.colour !== 'greenOutline' && !c.confirmed && !c.routedBy;
+  if (me().team === 'ra') return c.team === 'ra' && (c.colour === 'purple' || c.colour === 'greenOutline');
+  return c.colour !== 'green' && c.colour !== 'greenOutline' && !c.routedBy;
 }
 
 // PAS: SECTION 5 · Screens
@@ -622,12 +634,9 @@ function renderHome() {
 
 function renderProduct(productId) {
   const p = product(productId) || DATA.products[0];
-  const rows = DATA.requirements.map(r => {
-    const c = state.cases[p.id + '-' + r.id];
-    return `
-      <tr><td><span class="lv lv-${c.colour}"></span> <a href="#assess/${r.id}/${p.id}"><b>${r.id}</b> ${r.title}</a><div class="small muted">${r.article} · ${fmtDate(r.from)}</div></td>
-        <td>${LEVEL_LABEL[c.colour]}</td><td>${c.team ? team(c.team).name : '<span class="muted">not routed</span>'}</td><td>${statusHtml(c)}</td></tr>`;
-  }).join('');
+  const cases = DATA.requirements.map(r => state.cases[p.id + '-' + r.id]);
+  const shown = state.mineOnly ? cases.filter(needsMe) : cases;
+  const rows = shown.map(c => caseRowHtml(c, 'requirement')).join('');
   return `
     <div class="crumbs small"><a href="#home">Overview</a> › <a href="#alert">Regulatory alert</a> › ${p.name}</div>
     <h1>${p.name}</h1>
@@ -642,8 +651,10 @@ function renderProduct(productId) {
         </dl></div>
       <div class="card"><h3>Evidence for the battery facts</h3>${productEvidenceIds(p).map(evidenceHtml).join('')}</div>
     </div>
-    <div class="card"><h3>${DATA.regulation.name} · every obligation for this product</h3>
-      <table class="list"><tr><th>Obligation</th><th>Readiness</th><th>Team</th><th>Status</th></tr>${rows}</table>
+    <div class="card"><div class="row"><h3>${DATA.regulation.name} · every obligation for this product</h3>
+      <label style="margin-left: auto"><input type="checkbox" ${state.mineOnly ? 'checked' : ''} onchange="toggleMine()"> <b>Only what needs me</b> (${cases.filter(needsMe).length})</label></div>
+      ${bulkBarHtml()}
+      <table class="list">${caseTableHead('Obligation')}${rows || '<tr><td colspan="6" class="muted">Nothing here needs you.</td></tr>'}</table>
     </div>`;
 }
 
@@ -710,6 +721,7 @@ function requirementNavHtml(activeId) {
       const open = cases.filter(c => c.colour !== 'green').length;
       const mine = cases.filter(needsMe).length;
       const bar = cases.map(c => `<span class="lv-${c.colour}"></span>`).join('');
+      if (state.mineOnly && !mine) return '';
       return `
         <a class="reqitem ${r.id === activeId ? 'active' : ''}" href="#assess/${r.id}">
           <div class="row"><b>${r.id}</b> ${r.short} <span style="margin-left: auto">${deadlineChip(r.from)}</span></div>
@@ -717,8 +729,8 @@ function requirementNavHtml(activeId) {
           <div class="small muted">${open} open${mine ? ` · <b>${mine} need you</b>` : ''}</div>
         </a>`;
     }).join('');
-    return `<div class="label" style="margin: 10px 0 4px">${topic}</div>${items}`;
-  }).join('');
+    return items.trim() ? `<div class="label" style="margin: 10px 0 4px">${topic}</div>${items}` : '';
+  }).join('') || '<p class="muted">Nothing needs you right now.</p>';
 }
 
 function renderAssess(reqId, productId) {
@@ -729,7 +741,7 @@ function renderAssess(reqId, productId) {
   return `
     ${regulationHeaderHtml()}
     <div class="row" style="margin-bottom: 14px">${chips}
-      <label style="margin-left: auto"><input type="checkbox" ${state.mineOnly ? 'checked' : ''} onchange="toggleMine()"> Only what needs me</label></div>
+      <label style="margin-left: auto"><input type="checkbox" ${state.mineOnly ? 'checked' : ''} onchange="toggleMine()"> <b>Only what needs me</b> (${cases.filter(needsMe).length})</label></div>
     <div class="split">
       <aside class="card">${requirementNavHtml(r.id)}</aside>
       <section>${c ? caseHtml(c) : requirementHtml(r)}</section>
@@ -746,9 +758,10 @@ function nextForMe(limit) {
 function regulationHeaderHtml() {
   const cases = allCases();
   const done = cases.filter(c => c.colour === 'green').length;
-  // Auto-routed "not applicable" cases still wait for a person, so they do not count as handled
-  const routed = cases.filter(c => c.colour !== 'green' && c.colour !== 'greenOutline' && c.routedBy).length;
-  const waiting = cases.filter(c => c.colour === 'greenOutline').length;
+  // Cases in the Regulatory Affairs queue still wait for a person, so they do not count as handled
+  const withExpert = c => c.team === 'ra' && (c.colour === 'purple' || c.colour === 'greenOutline');
+  const routed = cases.filter(c => c.colour !== 'green' && c.routedBy && !withExpert(c)).length;
+  const waiting = cases.filter(withExpert).length;
   const open = cases.length - done - routed - waiting;
   const confirmedByMe = cases.filter(c => c.confirmed && c.confirmed.by === state.user).length;
   const unrouted = cases.filter(c => c.colour !== 'green' && !c.routedBy).length;
@@ -774,7 +787,7 @@ function regulationHeaderHtml() {
           <div class="small muted">Alert received ${DATA.regulation.received} · owner ${person(team('qr').lead).name}, Q&R</div></div>
         <div><div class="label">Progress · ${done + routed} of ${cases.length} cases handled</div>
           <div class="progress"><span style="width: ${share(done)}; background: var(--green)"></span><span style="width: ${share(routed)}; background: var(--ink)"></span></div>
-          <div class="small"><span class="lv lv-green"></span> Done ${done} · <span class="lv" style="background: var(--ink)"></span> Routed ${routed} · <span class="lv lv-greenOutline"></span> Waiting sign-off ${waiting} · Open ${open}</div>
+          <div class="small"><span class="lv lv-green"></span> Done ${done} · <span class="lv" style="background: var(--ink)"></span> Routed ${routed} · <span class="lv lv-purple"></span> With Regulatory Affairs ${waiting} · Open ${open}</div>
           <div class="small">You confirmed ${confirmedByMe} · ${cases.filter(needsMe).length} still need you</div></div>
         <div><div class="label">Next for you, ${me().name.split(' ')[0]}</div>
           ${todo ? `<ol style="margin: 4px 0; padding-left: 18px">${todo}</ol>` : '<p>Nothing left for you here.</p>'}</div>
@@ -790,17 +803,11 @@ function toggleMine() {
 }
 
 function requirementHtml(r) {
-  const cases = allCases().filter(c => c.reqId === r.id).sort(compareCases);
+  const cases = allCases().filter(c => c.reqId === r.id);
   const affected = cases.filter(c => product(c.productId).hasBattery).length;
-  const shown = state.mineOnly ? cases.filter(needsMe) : cases;
-  const rows = shown.map(c => {
-    const p = product(c.productId);
-    return `
-      <tr><td><span class="lv lv-${c.colour}"></span> <a href="#assess/${r.id}/${p.id}"><b>${p.name}</b></a> <span class="small muted">${p.battery}</span></td>
-        <td>${LEVEL_LABEL[c.colour]}</td><td>${c.team ? team(c.team).name : '<span class="muted">not routed</span>'}</td><td>${statusHtml(c)}</td></tr>`;
-  }).join('');
   const sop = r.sopSearch ? ` SOP search: closest match ${r.sopSearch.closest}, ${r.sopSearch.finding}` : '';
-  const groups = requirementGroups(r.id).map(groupHtml).join('');
+  const sections = requirementGroups(r.id, true).map(sectionHtml).join('');
+  const needsStarter = r.starter && cases.some(c => c.colour === 'red' && !c.productChange);
   return `
     <div class="card">
       <div class="label">${r.id} · ${r.topic} · ${r.article} ${sourceBadge('R', requirementSourceUrl(r))}</div>
@@ -810,36 +817,126 @@ function requirementHtml(r) {
     </div>
     ${aiBlock(r.portable === 'applies' ? `Applies to ${affected} of ${cases.length} products` : 'Not applicable to any product',
       `<p>${r.portable === 'applies' ? `Applies to portable batteries; ${affected} products have one.` : `Only covers ${r.scopeText}; our products have portable batteries or none.`}${sop}</p>`)}
-    <h3>Open decisions · grouped by outcome</h3>
-    ${groups || '<div class="card muted">Nothing open for this requirement.</div>'}
     <div class="card">
-      <h3>All products · click one to review its evidence</h3>
-      <table class="list"><tr><th>Product</th><th>Readiness</th><th>Team</th><th>Status</th></tr>${rows || '<tr><td colspan="4" class="muted">Nothing here needs you.</td></tr>'}</table>
+      <h3>Products · every product once, grouped by outcome</h3>
+      ${bulkBarHtml()}
+      <table class="list">${caseTableHead('Product')}${sections || '<tr><td colspan="6" class="muted">Nothing here needs you.</td></tr>'}</table>
+      ${teamsPanelHtml()}
     </div>
+    ${needsStarter ? `<div class="card">${sopStarterHtml(r)}</div>` : ''}
     ${commentsHtml(r.id, 'Comments on ' + r.id)}`;
 }
 
-function groupHtml(g) {
-  const r = requirement(g.cases[0].reqId);
-  const names = g.cases.map(c => product(c.productId).name).join(', ');
-  let extra = '';
-  if (g.colour === 'greenOutline') extra = signOffHtml(g);
-  if (g.colour === 'red' && r.starter && !g.kind) extra = sopStarterHtml(r);
+function sectionHtml(g) {
+  const shown = state.mineOnly ? g.cases.filter(needsMe) : g.cases;
+  if (!shown.length) return '';
+  const suggestion = g.colour === 'green' ? null : suggestTeam(g.cases[0]);
+  const unrouted = g.cases.filter(c => !c.routedBy);
+  const allTicked = shown.every(c => state.selected[c.id]);
+  const routeButton = suggestion && unrouted.length && suggestion.team !== me().team ? `
+    <span class="small"><span class="ai-chip">✦ AI</span> Suggests <b>${team(suggestion.team).name}</b>: ${suggestion.reason}</span>
+    <button class="btn ghost small" onclick="routeMany('${unrouted.map(c => c.id).join(',')}', '${suggestion.team}')">Route ${unrouted.length} there</button>` : '';
   return `
-    <div class="card">
-      <div class="row"><span class="lv lv-${g.colour}"></span><b>${LEVEL_LABEL[g.colour]}${g.kind ? ` (${g.kind})` : ''}</b><span class="muted">· ${plural(g.cases.length, 'product')}</span></div>
-      <p class="small muted">${names}</p>
-      ${g.colour === 'greenOutline' ? '' : routingHtml(g.key, g.cases)}
-      ${extra}
-    </div>`;
+    <tr class="section"><td><input type="checkbox" title="Tick all in this section" ${allTicked ? 'checked' : ''} onchange="selectMany('${shown.map(c => c.id).join(',')}', this.checked)"></td>
+      <td colspan="5"><div class="row"><span class="lv lv-${g.colour}"></span><b>${sectionTitle(g)}</b><span class="small muted">${plural(g.cases.length, 'product')}</span>${routeButton}</div></td></tr>
+    ${shown.map(c => caseRowHtml(c, 'product')).join('')}`;
 }
+
+// ---- Case rows: the same row on the requirement view and the product page
+
+function caseTableHead(firstColumn) {
+  return `<tr><th></th><th>${firstColumn}</th><th>Readiness</th><th>Team</th><th>Decision</th><th>Actions</th></tr>`;
+}
+
+function caseRowHtml(c, firstColumn) {
+  const p = product(c.productId);
+  const r = requirement(c.reqId);
+  const first = firstColumn === 'product'
+    ? `<a href="#product/${p.id}"><b>${p.name}</b></a><div class="small muted">${p.battery}</div>`
+    : `<a href="#assess/${r.id}"><b>${r.id}</b> ${r.title}</a><div class="small muted">${r.article} · ${fmtDate(r.from)}</div>`;
+  const owner = c.team ? `${team(c.team).name}${c.assignee ? `<div class="small muted">${person(c.assignee).name}</div>` : ''}` : '<span class="muted">not routed</span>';
+  return `
+    <tr><td><input type="checkbox" ${state.selected[c.id] ? 'checked' : ''} onchange="toggleSelect('${c.id}')"></td>
+      <td>${first}</td><td><span class="lv lv-${c.colour}"></span> ${LEVEL_LABEL[c.colour]}</td><td>${owner}</td><td>${statusHtml(c)}</td>
+      <td><div class="row">${rowActionsHtml(c)}<a class="small" href="#assess/${r.id}/${p.id}">Review ›</a></div></td></tr>`;
+}
+
+// PAS: DEMO every row can be decided on the spot; the case review is there for the evidence and for overrides
+function rowActionsHtml(c) {
+  const isExpert = me().team === 'ra';
+  const button = (label, action) => `<button class="btn ghost small" onclick="${action}('${c.id}')">${label}</button>`;
+  if (c.colour === 'green') return '';
+  if (c.colour === 'greenOutline') return isExpert ? button('Sign off', 'signCase') : '<span class="small muted">Awaiting sign-off by Regulatory Affairs</span>';
+  if (c.colour === 'purple' && isExpert) return button('Applies', 'resolveApplies') + button('Not applicable', 'signCase');
+  // PAS: WHY Regulatory Affairs is the expert, so it never gets "To expert"; it decides here or overrides in the case review
+  const toExpert = c.colour === 'purple' || isExpert ? '' : button('To expert', 'sendToExpert');
+  return (c.confirmed ? '' : button('Confirm', 'confirmCase')) + toExpert;
+}
+
+// ---- Bulk actions on ticked rows
+
+function selectedCases() { return Object.keys(state.selected).filter(id => state.selected[id]).map(id => state.cases[id]); }
+
+function toggleSelect(id) {
+  state.selected[id] = !state.selected[id];
+  render();
+}
+
+function selectMany(ids, on) {
+  ids.split(',').forEach(id => { state.selected[id] = on; });
+  render();
+}
+
+function clearSelection() {
+  state.selected = {};
+  render();
+}
+
+function bulkBarHtml() {
+  const ticked = selectedCases();
+  if (!ticked.length) return '<p class="small muted">Tick rows to act on several products at once, or use the buttons in each row.</p>';
+  const suggestion = suggestTeam(ticked[0]);
+  const picked = state.picks.bulk || suggestion.team;
+  const options = Object.keys(DATA.teams).filter(id => id !== 'qr')
+    .map(id => `<option value="${id}" ${id === picked ? 'selected' : ''}>${team(id).name}${id === suggestion.team ? ' (✦ AI suggested)' : ''}</option>`).join('');
+  return `
+    <div class="bulkbar row"><b>${ticked.length} ticked</b>
+      <button class="btn ghost small" onclick="bulkConfirm()">Confirm</button>
+      ${me().team === 'ra' ? '<button class="btn ghost small" onclick="bulkSign()">Sign off not applicable</button>'
+        : '<button class="btn ghost small" onclick="bulkExpert()">To expert</button>'}
+      <select id="bulk-team" onchange="state.picks.bulk = this.value">${options}</select>
+      <button class="btn small" onclick="bulkRoute()">Route</button>
+      <button class="btn ghost small" onclick="clearSelection()">Clear</button></div>`;
+}
+
+function teamsPanelHtml() {
+  if (state.teamsOpen !== 'panel') return '<button class="btn ghost small" style="margin-top: 8px" onclick="showTeams(\'panel\')">Compare teams</button>';
+  const first = selectedCases()[0] || allCases().find(c => c.colour !== 'green');
+  const suggestion = suggestTeam(first);
+  const picked = state.picks.bulk || suggestion.team;
+  const cards = Object.keys(DATA.teams).filter(id => id !== 'qr').map(id => teamCardHtml('bulk', id, suggestion, picked)).join('');
+  return `<div class="teams">${cards}</div><button class="btn ghost small" onclick="showTeams(null)">Hide teams</button>`;
+}
+
+function bulkConfirm() {
+  selectedCases().filter(c => !c.confirmed && c.colour !== 'green' && c.colour !== 'greenOutline').forEach(c => record(c, `Confirmed the AI call "${LEVEL_LABEL[c.colour]}".`));
+  clearSelection();
+}
+
+function bulkSign() { signOff(selectedCases().filter(c => c.colour === 'greenOutline' || c.colour === 'purple')); }
+
+function bulkExpert() {
+  if (me().team === 'ra') return;
+  selectedCases().filter(c => c.colour === 'red' || c.colour === 'orange').forEach(c => moveToExpert(c));
+  clearSelection();
+}
+
+function bulkRoute() { routeList(selectedCases().filter(c => c.colour !== 'green'), document.getElementById('bulk-team').value, null); }
+function routeMany(ids, teamId) { routeList(ids.split(',').map(id => state.cases[id]), teamId, null); }
 
 // ---- Routing: pick a team, see what it does and how loaded it is, then route
 
-function casesForKey(key) {
-  if (state.cases[key]) return [state.cases[key]];
-  return requirementGroups(key.split('|')[0]).find(g => g.key === key).cases;
-}
+function casesForKey(key) { return [state.cases[key]]; }
 
 function teamCardHtml(key, teamId, suggestion, picked) {
   const t = team(teamId);
@@ -891,10 +988,15 @@ function showTeams(key) {
 function routeCases(key) {
   const cases = casesForKey(key);
   const teamId = state.picks[key] || cases[0].team || suggestTeam(cases[0]).team;
-  const assignee = document.getElementById('assignee-' + key).value || null;
+  routeList(cases, teamId, document.getElementById('assignee-' + key).value || null);
+}
+
+function routeList(cases, teamId, assignee) {
+  if (!cases.length) return;
   cases.forEach(c => { c.team = teamId; c.assignee = assignee; c.routedBy = state.user; });
-  delete state.picks[key];
+  state.picks = {};
   state.teamsOpen = null;
+  state.selected = {};
   addLog(`Routed ${cases.map(caseName).join(', ')} to ${team(teamId).name}${assignee ? ' (' + person(assignee).name + ')' : ''}`);
   render();
 }
@@ -932,35 +1034,38 @@ function requestSop(reqId) {
 
 // ---- Sign-off: only Regulatory Affairs can sign a "not applicable"
 
-// PAS: WHY a group sign-off checks the shared reason once (e.g. the Art. 77 scope) and applies it to every product in the group
-function groupEvidenceIds(g) {
-  if (g.cases.length === 1) return evidenceIds(g.cases[0]);
-  if (g.kind === 'no battery') return [...new Set(g.cases.flatMap(c => productEvidenceIds(product(c.productId))))];
-  return requirementEvidenceIds(requirement(g.cases[0].reqId));
+// PAS: WHY evidence ticks no longer block a decision; instead every decision records how much evidence was checked
+function evidenceNote(c) {
+  const ids = evidenceIds(c);
+  return `evidence checked ${ids.filter(id => state.checked[id]).length} of ${ids.length}`;
 }
 
-function signOffHtml(g) {
-  if (me().team !== 'ra') {
-    return `<p class="small">Waiting for sign-off by <b>Regulatory Affairs</b>. To sign, log in as Jonas Richter (top right).</p>`;
-  }
-  const ids = groupEvidenceIds(g);
-  const allChecked = ids.every(id => state.checked[id]);
-  return `
-    ${ids.map(evidenceHtml).join('')}
-    <button class="btn" ${allChecked ? '' : 'disabled'} onclick="signGroup('${g.key}')">Sign "not applicable" for ${plural(g.cases.length, 'product')}</button>
-    ${allChecked ? '' : '<span class="small muted">Tick every card to unlock.</span>'}`;
-}
-
-function signGroup(key) { signOff(casesForKey(key)); }
+function signCase(id) { signOff([state.cases[id]]); }
 
 function signOff(cases) {
+  if (!cases.length || me().team !== 'ra') return;
   cases.forEach(c => {
     c.colour = 'green';
     c.team = 'ra';
     c.signed = { by: state.user, at: now() };
+    addLog(`${caseName(c)}: signed "not applicable" (${evidenceNote(c)})`);
   });
-  addLog(`Signed "not applicable" for ${cases.map(caseName).join(', ')}`);
+  state.selected = {};
   render();
+}
+
+// The expert decides an unclear case applies: it gets its real readiness and the matching team
+function resolveApplies(id) {
+  const c = state.cases[id];
+  if (c.reqId === 'R5') {
+    c.colour = 'red';
+    c.productChange = true;
+  } else {
+    c.colour = readinessCall(product(c.productId), requirement(c.reqId)).colour;
+  }
+  c.team = c.colour === 'green' ? 'ra' : suggestTeam(c).team;
+  c.routedBy = state.user;
+  decide(c, `Decided it applies: ${LEVEL_LABEL[c.colour]}. Routed to ${team(c.team).name}.`);
 }
 
 // ---- Case review: one product × one requirement
@@ -992,9 +1097,10 @@ function caseHtml(c) {
   const r = requirement(c.reqId);
   const ids = evidenceIds(c);
   const checkedCount = ids.filter(id => state.checked[id]).length;
-  // PAS: DEMO confirm stays locked until every evidence card on the case is ticked "Checked"
-  const allChecked = checkedCount === ids.length;
-  const route = c.colour === 'greenOutline' ? signOffHtml({ key: c.id, kind: '', cases: [c] }) : routingHtml(c.id, [c]);
+  const route = c.colour === 'purple' && me().team === 'ra' ? `<div class="row">${rowActionsHtml(c)}<span class="small muted">You decide: does it apply?</span></div>`
+    : c.colour !== 'greenOutline' ? routingHtml(c.id, [c])
+    : me().team === 'ra' ? `<button class="btn" onclick="signCase('${c.id}')">Sign "not applicable"</button> <span class="small muted">${evidenceNote(c)}, recorded with your sign-off</span>`
+    : '<p class="small">Waiting for sign-off by <b>Regulatory Affairs</b>. To sign, log in as Jonas Richter (top right).</p>';
   return `
     <div class="crumbs"><a href="#assess/${r.id}">${r.id} ${r.title}</a> › <b>${p.name}</b></div>
     <div class="grid">
@@ -1010,12 +1116,12 @@ function caseHtml(c) {
     </div>
     ${aiBlock(`<span class="lv lv-${c.ai.colour}"></span> ${LEVEL_LABEL[c.ai.colour]} · confidence ${c.ai.confidence}`, `<p>${c.ai.reasoning}</p>`)}
     <div class="card"><h3>Evidence · ${checkedCount} of ${ids.length} checked</h3>${ids.map(evidenceHtml).join('')}</div>
-    ${decisionHtml(c, allChecked)}
-    ${c.colour === 'green' ? '' : `<div class="card"><h3>Route this case</h3>${route}</div>`}
+    ${decisionHtml(c)}
+    ${c.colour === 'green' ? '' : `<div class="card"><h3>${c.colour === 'greenOutline' ? 'Sign-off' : c.colour === 'purple' && me().team === 'ra' ? 'Expert decision' : 'Route this case'}</h3>${route}</div>`}
     ${commentsHtml(c.id, 'Comments on this case')}`;
 }
 
-function decisionHtml(c, allChecked) {
+function decisionHtml(c) {
   const done = c.signed ? `<p>${humanChip(c.signed.by, c.signed.at)} signed "not applicable".</p>`
     : c.confirmed ? `<p>${humanChip(c.confirmed.by, c.confirmed.at)} ${esc(c.confirmed.text)}</p>` : '';
   const options = ['red', 'orange', 'green'].map(level => `<option value="${level}" ${level === c.colour ? 'selected' : ''}>${LEVEL_LABEL[level]}</option>`).join('');
@@ -1024,9 +1130,8 @@ function decisionHtml(c, allChecked) {
       <div class="row"><span class="human-chip">✓ Human decision</span><b>${me().name}</b><span class="small muted">${me().role}</span></div>
       ${done}
       <div class="row" style="margin: 8px 0">
-        <button class="btn" ${allChecked && !c.confirmed ? '' : 'disabled'} onclick="confirmCase('${c.id}')">Confirm AI call</button>
-        <span class="small muted">${allChecked ? '' : 'Tick every evidence card to unlock.'}</span>
-        <button class="btn ghost" onclick="sendToExpert('${c.id}')">Send to expert</button>
+        ${rowActionsHtml(c)}
+        <span class="small muted">${evidenceNote(c)}; this is recorded with your decision</span>
       </div>
       <details><summary>Change readiness or override applicability</summary>
         <dl class="form">
@@ -1039,15 +1144,19 @@ function decisionHtml(c, allChecked) {
     </div>`;
 }
 
-function decide(c, text) {
+function record(c, text) {
   c.confirmed = { by: state.user, at: now(), text };
-  addLog(`${caseName(c)}: ${text}`);
+  addLog(`${caseName(c)}: ${text} (${evidenceNote(c)})`);
+}
+
+function decide(c, text) {
+  record(c, text);
   render();
 }
 
 function confirmCase(id) {
   const c = state.cases[id];
-  decide(c, `Confirmed the AI call "${LEVEL_LABEL[c.colour]}" after checking the evidence.`);
+  decide(c, `Confirmed the AI call "${LEVEL_LABEL[c.colour]}".`);
 }
 
 function changeCase(id) {
@@ -1071,12 +1180,17 @@ function overrideCase(id) {
   decide(c, text);
 }
 
-function sendToExpert(id) {
-  const c = state.cases[id];
+function moveToExpert(c) {
   c.colour = 'purple';
   c.team = 'ra';
   c.routedBy = state.user;
-  decide(c, 'Sent to Regulatory Affairs for expert review.');
+  record(c, 'Sent to Regulatory Affairs for expert review.');
+}
+
+function sendToExpert(id) {
+  if (me().team === 'ra') return;
+  moveToExpert(state.cases[id]);
+  render();
 }
 
 // ---- Comments on a requirement or a case
@@ -1189,6 +1303,7 @@ function render() {
 }
 
 window.addEventListener('hashchange', () => {
+  state.selected = {};
   render();
   window.scrollTo(0, 0);
 });
