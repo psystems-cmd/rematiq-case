@@ -41,6 +41,9 @@ main { max-width: 1240px; margin: 0 auto; padding: 20px 16px 64px; }
 .split { display: grid; gap: 14px; grid-template-columns: 290px 1fr; align-items: start; }
 .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .crumbs { margin-bottom: 10px; }
+.grid3 { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); margin: 12px 0; }
+.progress { display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: var(--bg); margin: 6px 0; }
+.status { display: inline-block; padding: 1px 8px; border-radius: 6px; border: 1px solid var(--line); font-size: 12px; white-space: nowrap; }
 
 .btn { font: inherit; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--ink); background: var(--ink); color: #fff; cursor: pointer; text-decoration: none; }
 .btn.ghost { background: transparent; color: var(--ink); }
@@ -102,6 +105,7 @@ dl.form dd { margin: 0; }
 <header class="topbar">
   <b>Pre-Assessment</b>
   <nav>
+    <a href="#home">Overview</a>
     <a href="#alert">1 · Regulatory alert</a>
     <a href="#assess">2 · Assess and route</a>
     <a href="#handover">3 · Handover</a>
@@ -126,45 +130,59 @@ const DATA = {
   today: '2026-11-04',
   businessUnit: 'Hospital Patient Monitoring',
   // PAS: SOURCE Regulation (EU) 2023/1542 on EUR-Lex
-  regulation: { code: 'Regulation (EU) 2023/1542', name: 'EU Battery Regulation', url: 'https://eur-lex.europa.eu/eli/reg/2023/1542/oj' },
+  // textUrl is the full text in HTML, so a link can jump to and highlight the quoted words
+  regulation: { code: 'Regulation (EU) 2023/1542', name: 'EU Battery Regulation', url: 'https://eur-lex.europa.eu/eli/reg/2023/1542/oj',
+    textUrl: 'https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32023R1542', received: '4 Nov 2026' },
+  // PAS: SOURCE regulation names, codes and links are real (EUR-Lex); their status in this portfolio is illustrative
+  // PAS: DEMO the Cyber Resilience Act really excludes MDR devices (Art. 2(2)(a)), a true "Not applicable"
+  regulations: [
+    { name: 'AI Act', code: 'Regulation (EU) 2024/1689', url: 'https://eur-lex.europa.eu/eli/reg/2024/1689/oj', attention: true,
+      status: 'Scope check due', products: 'Software products to check', action: 'Decide which software functions count as AI systems' },
+    { name: 'Medical Device Regulation', code: 'Regulation (EU) 2017/745', url: 'https://eur-lex.europa.eu/eli/reg/2017/745/oj',
+      status: 'In Detailed Assessment', products: 'All 12', action: 'SOP Compliance Assessment running' },
+    { name: 'Cyber Resilience Act', code: 'Regulation (EU) 2024/2847', status: 'Not applicable', products: '0 of 12', action: 'None: Art. 2(2)(a) excludes products under the MDR',
+      url: 'https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32024R2847#:~:text=does%20not%20apply%20to%20products%20with%20digital%20elements%20to%20which%20the%20following' },
+    { name: 'RoHS Directive', code: 'Directive 2011/65/EU', url: 'https://eur-lex.europa.eu/eli/dir/2011/65/oj', status: 'Monitoring', products: 'All 12', action: 'No open changes' },
+    { name: 'Ecodesign for Sustainable Products', code: 'Regulation (EU) 2024/1781', url: 'https://eur-lex.europa.eu/eli/reg/2024/1781/oj', status: 'Monitoring', products: 'Not yet known', action: 'Watch for product-group rules' },
+  ],
   // PAS: SOURCE public philips.de catalogue scrape, 4 Nov 2026; English product pages on philips.co.uk where they exist
   catalogue: { site: 'philips.de', date: '4 Nov 2026', scraped: '1,270', categories: 14, url: 'https://www.philips.co.uk/healthcare/solutions/patient-monitoring' },
   // Products in display order. url: product page; sku: null means no catalogue match yet.
   products: [
     // PAS: SOURCE public philips.co.uk product page HC867030
     // PAS: TODO the X3 battery pack may be user-replaceable; check, it would turn R5 green for X3 and MX100
-    { id: 'P1', name: 'IntelliVue X3', sku: 'HC867030', url: 'https://www.philips.co.uk/healthcare/product/HC867030', use: 'Transport monitor',
+    { id: 'P1', category: 'Continuous monitoring', name: 'IntelliVue X3', sku: 'HC867030', url: 'https://www.philips.co.uk/healthcare/product/HC867030', use: 'Transport monitor',
       battery: 'Battery pack, 5 h capacity', batteryTag: 'P', hasBattery: true, userChangeable: false, continuousUse: true, evidence: ['ev-x3'] },
     // PAS: SOURCE public philips.co.uk product page HC867033
-    { id: 'P2', name: 'IntelliVue MX100', sku: 'HC867033', url: 'https://www.philips.co.uk/healthcare/product/HC867033', use: 'Bedside and transport monitor',
+    { id: 'P2', category: 'Continuous monitoring', name: 'IntelliVue MX100', sku: 'HC867033', url: 'https://www.philips.co.uk/healthcare/product/HC867033', use: 'Bedside and transport monitor',
       battery: 'Battery pack, 5 h capacity', batteryTag: 'P', hasBattery: true, userChangeable: false, continuousUse: true, evidence: ['ev-mx100'] },
     // PAS: SOURCE public philips.de product page HC863304 (German only) and Efficia brochure
-    { id: 'P3', name: 'Efficia CM150', sku: 'HC863304', url: 'https://www.philips.de/healthcare/product/HC863304', use: 'Bedside monitor',
+    { id: 'P3', category: 'Continuous monitoring', name: 'Efficia CM150', sku: 'HC863304', url: 'https://www.philips.de/healthcare/product/HC863304', use: 'Bedside monitor',
       battery: 'Lithium battery, user-changeable', batteryTag: 'P', hasBattery: true, userChangeable: true, continuousUse: true, evidence: ['ev-efficia', 'ev-efficia-brochure'] },
     // PAS: SOURCE assumed, no catalogue match yet (also for P10, P11, P12)
-    { id: 'P9', name: 'IntelliVue MX750', sku: null, use: 'Bedside monitor',
+    { id: 'P9', category: 'Continuous monitoring', name: 'IntelliVue MX750', sku: null, use: 'Bedside monitor',
       battery: 'Built-in backup battery', batteryTag: 'A', hasBattery: true, userChangeable: false, continuousUse: true },
-    { id: 'P10', name: 'IntelliVue MX850', sku: null, use: 'Bedside monitor',
+    { id: 'P10', category: 'Continuous monitoring', name: 'IntelliVue MX850', sku: null, use: 'Bedside monitor',
       battery: 'Built-in backup battery', batteryTag: 'A', hasBattery: true, userChangeable: false, continuousUse: true },
     // PAS: SOURCE public philips.co.uk product page HC865351; the page does not mention the battery, so it is assumed
-    { id: 'P4', name: 'IntelliVue MX40', sku: 'HC865351', url: 'https://www.philips.co.uk/healthcare/product/HC865351', use: 'Patient-worn monitor',
+    { id: 'P4', category: 'Wearable and fetal', name: 'IntelliVue MX40', sku: 'HC865351', url: 'https://www.philips.co.uk/healthcare/product/HC865351', use: 'Patient-worn monitor',
       battery: 'Battery-powered', batteryTag: 'A', hasBattery: true, userChangeable: false, continuousUse: true },
-    { id: 'P11', name: 'Avalon CL', sku: null, use: 'Cableless fetal monitor',
+    { id: 'P11', category: 'Wearable and fetal', name: 'Avalon CL', sku: null, use: 'Cableless fetal monitor',
       battery: 'Rechargeable transducers', batteryTag: 'A', hasBattery: true, userChangeable: false, continuousUse: true },
     // PAS: TODO spot-check use of the VS30 is assumed; it makes VS30 the one R&D product-change case
-    { id: 'P12', name: 'EarlyVue VS30', sku: null, use: 'Vital signs spot check',
+    { id: 'P12', category: 'Vital signs', name: 'EarlyVue VS30', sku: null, use: 'Vital signs spot check',
       battery: 'Rechargeable', batteryTag: 'A', hasBattery: true, userChangeable: false, continuousUse: false },
     // PAS: SOURCE public philips.co.uk product page HC866185; battery assumed
-    { id: 'P5', name: 'Expression MR400', sku: 'HC866185', url: 'https://www.philips.co.uk/healthcare/product/HC866185', use: 'MR patient monitor',
+    { id: 'P5', category: 'MR monitoring', name: 'Expression MR400', sku: 'HC866185', url: 'https://www.philips.co.uk/healthcare/product/HC866185', use: 'MR patient monitor',
       battery: 'Rechargeable', batteryTag: 'A', hasBattery: true, userChangeable: false, continuousUse: true },
     // PAS: SOURCE public philips.co.uk product page 866162; "no battery" assumed
-    { id: 'P6', name: 'MR Patient Care Portal 5000', sku: '866162', url: 'https://www.philips.co.uk/healthcare/product/866162', use: 'MR patient care portal',
+    { id: 'P6', category: 'MR monitoring', name: 'MR Patient Care Portal 5000', sku: '866162', url: 'https://www.philips.co.uk/healthcare/product/866162', use: 'MR patient care portal',
       battery: 'Mains-powered, no battery', batteryTag: 'A', hasBattery: false },
     // PAS: SOURCE public philips.co.uk product page HCNOCTN171
-    { id: 'P7', name: 'PIC iX', sku: 'HCNOCTN171', url: 'https://www.philips.co.uk/healthcare/product/HCNOCTN171', use: 'Central station software',
+    { id: 'P7', category: 'Central monitoring and mounts', name: 'PIC iX', sku: 'HCNOCTN171', url: 'https://www.philips.co.uk/healthcare/product/HCNOCTN171', use: 'Central station software',
       battery: 'Software, no battery', batteryTag: 'P', hasBattery: false },
     // PAS: SOURCE public philips.de product page HC989803195571 (German only)
-    { id: 'P8', name: 'GCX Efficia wall mount', sku: 'HC989803195571', url: 'https://www.philips.de/healthcare/product/HC989803195571', use: 'Wall mount',
+    { id: 'P8', category: 'Central monitoring and mounts', name: 'GCX Efficia wall mount', sku: 'HC989803195571', url: 'https://www.philips.de/healthcare/product/HC989803195571', use: 'Wall mount',
       battery: 'No battery', batteryTag: 'P', hasBattery: false },
   ],
   // portable: does the requirement apply to portable batteries at all?
@@ -172,15 +190,15 @@ const DATA = {
   requirements: [
     // PAS: SOURCE Reg. (EU) 2023/1542 Art. 13(4)
     { id: 'R1', topic: 'Labelling', short: 'Collection symbol', title: 'Separate-collection symbol', article: 'Art. 13(4)', from: '2025-08-18', portable: 'applies',
-      plain: 'Every battery carries the symbol for separate collection (crossed-out wheelie bin).', evidence: 'ev-art13-4',
+      plain: 'Every battery carries the symbol for separate collection (crossed-out wheelie bin).', evidence: ['ev-art13-4'],
       sopSearch: { closest: 'SOP-LAB-EU-BAT-001 §4', finding: 'covers the collection symbol; detailed assessment passed.' } },
     // PAS: SOURCE Reg. (EU) 2023/1542 Art. 13(1)
     { id: 'R3', topic: 'Labelling', short: 'General label', title: 'General label', article: 'Art. 13(1)', from: '2026-08-18', portable: 'applies',
-      plain: 'The battery label shows the general information listed in Annex VI, Part A.', evidence: 'ev-art13-1',
+      plain: 'The battery label shows the general information listed in Annex VI, Part A.', evidence: ['ev-art13-1'],
       sopSearch: { closest: 'SOP-LAB-EU-BAT-001 §5', finding: 'mentions the general label; not yet checked clause by clause.' } },
     // PAS: SOURCE Reg. (EU) 2023/1542 Art. 13(6)
     { id: 'R4', topic: 'Labelling', short: 'QR code', title: 'QR code', article: 'Art. 13(6)', from: '2027-02-18', portable: 'applies',
-      plain: 'Every battery carries a QR code as described in Annex VI, Part C.', evidence: 'ev-art13-6',
+      plain: 'Every battery carries a QR code as described in Annex VI, Part C.', evidence: ['ev-art13-6'],
       sopSearch: { closest: 'SOP-LAB-EU-BAT-001 §7', finding: 'no mention of QR code.' },
       // PAS: SIMULATED SOP outline, an AI draft that nobody has approved
       starter: { mode: 'extend', extendSop: 'SOP-LAB-EU-BAT-001', newSop: 'SOP-LAB-EU-BAT-QR', team: 'lab', approver: 'jonas', outline: {
@@ -189,18 +207,18 @@ const DATA = {
         Procedure: '1. Define QR content per Annex VI Part C. 2. Add the QR code to the label artwork. 3. Verify it scans. 4. Release through label change control.',
         Records: 'Label artwork, scan verification, change-control number.',
       } } },
-    // PAS: SOURCE Reg. (EU) 2023/1542, producer obligations
-    // PAS: TODO confirm the article for producer registration (Art. 55?) before showing it
-    { id: 'R2', topic: 'Producer obligations', short: 'Producer registration', title: 'Producer registration and take-back', article: 'Art. 55 ff. (verify)', from: '2025-08-18', portable: 'applies',
-      plain: 'Register as a producer in every EU country where the battery is sold, and organise take-back of waste batteries.', evidence: 'ev-art55',
+    // PAS: SOURCE Reg. (EU) 2023/1542 Art. 55 (register of producers) and the following take-back articles
+    { id: 'R2', topic: 'Producer obligations', short: 'Producer registration', title: 'Producer registration and take-back', article: 'Art. 55 ff.', from: '2025-08-18', portable: 'applies',
+      plain: 'Register as a producer in every EU country where the battery is sold, and organise take-back of waste batteries.', evidence: ['ev-art55'],
       sopSearch: { closest: 'SOP-ENV-EPR-002 §2', finding: 'covers registration and take-back; detailed assessment passed.' } },
     // PAS: SOURCE Reg. (EU) 2023/1542 Art. 11
     { id: 'R5', topic: 'Product design', short: 'Removability', title: 'User-removable and replaceable battery', article: 'Art. 11', from: '2027-02-18', portable: 'applies',
-      plain: 'End users can remove and replace the portable battery, unless an exemption applies.', evidence: 'ev-art11',
+      plain: 'End users can remove and replace the portable battery, unless an exemption applies.', evidence: ['ev-art11', 'ev-art11-3'],
       sopSearch: { closest: 'SOP-IFU-010 §3', finding: 'battery replacement steps only; SOP-DES-BAT-004 is silent on removability.' } },
-    // PAS: SOURCE Reg. (EU) 2023/1542 Art. 48, as amended by Reg. (EU) 2025/1561
+    // PAS: SOURCE Reg. (EU) 2023/1542 Art. 48; Reg. (EU) 2025/1561 moved the start date to 18 Aug 2027
+    // PAS: TODO check the amended Art. 48 text from Reg. 2025/1561 (the quote below is the original 2023 text)
     { id: 'R6', topic: 'Supply chain', short: 'Due diligence', title: 'Supply-chain due diligence', article: 'Art. 48', from: '2027-08-18', portable: 'applies',
-      plain: 'Companies above €40M turnover run a due-diligence policy for the raw materials in their batteries.', evidence: 'ev-art48',
+      plain: 'Companies above €40M turnover run a due-diligence policy for the raw materials in their batteries.', evidence: ['ev-art48'],
       sopSearch: { closest: 'SOP-SUP-QUA-003 §2', finding: 'general supplier checks only; no raw-material due diligence.' },
       // PAS: SIMULATED SOP outline, an AI draft that nobody has approved
       starter: { mode: 'create', extendSop: 'SOP-SUP-QUA-003', newSop: 'SOP-SUP-DD-008', team: 'sup', approver: 'jonas', outline: {
@@ -211,10 +229,10 @@ const DATA = {
       } } },
     // PAS: SOURCE Reg. (EU) 2023/1542 Art. 77
     { id: 'R7', topic: 'Other battery types', short: 'Battery passport', title: 'Battery passport', article: 'Art. 77', from: '2027-02-18', portable: 'not-applicable',
-      scopeText: 'EV, LMT and industrial batteries above 2 kWh', plain: 'Each EV, LMT and industrial battery above 2 kWh gets a digital battery passport.', evidence: 'ev-art77' },
+      scopeText: 'EV, LMT and industrial batteries above 2 kWh', plain: 'Each EV, LMT and industrial battery above 2 kWh gets a digital battery passport.', evidence: ['ev-art77'] },
     // PAS: SOURCE Reg. (EU) 2023/1542 Art. 14
     { id: 'R8', topic: 'Other battery types', short: 'State of health', title: 'State-of-health data', article: 'Art. 14', from: '2024-08-18', portable: 'not-applicable',
-      scopeText: 'stationary battery energy storage systems, LMT and EV batteries', plain: 'The battery management system stores state-of-health data for stationary, LMT and EV batteries.', evidence: 'ev-art14' },
+      scopeText: 'stationary battery energy storage systems, LMT and EV batteries', plain: 'The battery management system stores state-of-health data for stationary, LMT and EV batteries.', evidence: ['ev-art14'] },
   ],
   // PAS: SOURCE illustrative SOP library, not Philips data. covers: requirements addressed; assessed: already confirmed in a Detailed Assessment
   sops: [
@@ -248,30 +266,43 @@ const DATA = {
     elif: { name: 'Elif Yilmaz', role: 'Supplier Quality Engineer', team: 'sup' },
     tobias: { name: 'Tobias Kern', role: 'Battery / Hardware Lead', team: 'rnd' },
   },
-  // Evidence cards. excerpt: null means the exact text still has to be pasted in.
+  // Evidence cards. highlight: words the source link jumps to and highlights (a browser text fragment).
   evidence: {
     // PAS: SOURCE public philips.co.uk product pages, retrieved 4 Nov 2026
-    'ev-x3': { claim: 'X3 runs on a battery pack', excerpt: 'This rugged, battery-powered device … Battery Capacity 5 hours (basic configuration)',
-      location: 'philips.co.uk, IntelliVue X3 product page', url: 'https://www.philips.co.uk/healthcare/product/HC867030', tag: 'P' },
-    'ev-mx100': { claim: 'MX100 runs on a battery pack', excerpt: 'This rugged, battery-powered device … Battery Capacity 5 hours (basic configuration)',
-      location: 'philips.co.uk, IntelliVue MX100 product page', url: 'https://www.philips.co.uk/healthcare/product/HC867033', tag: 'P' },
+    'ev-x3': { claim: 'X3 runs on a battery pack', excerpt: 'Battery · Capacity: 5 hours (basic configuration)', highlight: '5 hours (basic configuration',
+      location: 'philips.co.uk, IntelliVue X3, specifications', url: 'https://www.philips.co.uk/healthcare/product/HC867030', tag: 'P' },
+    'ev-mx100': { claim: 'MX100 runs on a battery pack', excerpt: 'Battery · Capacity: 5 hours (basic configuration)', highlight: '5 hours (basic configuration',
+      location: 'philips.co.uk, IntelliVue MX100, specifications', url: 'https://www.philips.co.uk/healthcare/product/HC867033', tag: 'P' },
     // PAS: SOURCE public philips.de product page (no English page exists); translation by Pascal
     'ev-efficia': { claim: 'Efficia CM150 has a lithium battery', excerpt: 'Intelligente Lithium-Batterie, integrierter intelligenter Chip, genaue Anzeige der Batterie-Kapazität',
-      translation: 'Smart lithium battery, built-in smart chip, accurate display of battery capacity', location: 'philips.de, Efficia CM150 product page', url: 'https://www.philips.de/healthcare/product/HC863304', tag: 'P' },
+      translation: 'Smart lithium battery, built-in smart chip, accurate display of battery capacity', highlight: 'Intelligente Lithium-Batterie',
+      location: 'philips.de, Efficia CM150 product page', url: 'https://www.philips.de/healthcare/product/HC863304', tag: 'P' },
     // PAS: TODO add the Efficia brochure PDF link
     'ev-efficia-brochure': { claim: 'Efficia batteries are user-changeable', excerpt: 'User-changeable batteries', location: 'Efficia patient monitoring brochure (PDF link still to add)', tag: 'P' },
-    // PAS: SOURCE regulation text as quoted in REMATIQ's demo
-    'ev-art13-4': { claim: 'Collection symbol is required', excerpt: 'From 18 August 2025, all batteries shall be marked with the symbol for separate collection…', location: 'EUR-Lex, Art. 13(4)', tag: 'R' },
-    'ev-art13-1': { claim: 'General label is required', excerpt: '…batteries shall bear a label containing the general information on batteries set out in Part A of Annex VI.', location: 'EUR-Lex, Art. 13(1)', tag: 'R' },
-    // PAS: TODO verify Art. 13(6) wording against EUR-Lex (matches several secondary sources)
-    'ev-art13-6': { claim: 'QR code is required', excerpt: 'From 18 February 2027, all batteries shall be marked with a QR code as described in Part C of Annex VI.', location: 'EUR-Lex, Art. 13(6)', tag: 'R' },
-    'ev-art14': { claim: 'State of health covers other battery types', excerpt: 'stationary battery energy storage systems, LMT batteries and electric vehicle batteries', location: 'EUR-Lex, Art. 14(1)', tag: 'R' },
-    // PAS: TODO paste the exact text of Art. 3, 11(1)/11(3), 48, 77 and the producer registration article from EUR-Lex
-    'ev-art3': { claim: 'Definition of a portable battery', excerpt: null, location: 'EUR-Lex, Art. 3', tag: 'R' },
-    'ev-art11': { claim: 'Removability and its exemptions', excerpt: null, location: 'EUR-Lex, Art. 11(1) and 11(3)', tag: 'R' },
-    'ev-art48': { claim: 'Due-diligence obligation', excerpt: null, location: 'EUR-Lex, Art. 48 (as amended by Reg. 2025/1561)', tag: 'R' },
-    'ev-art77': { claim: 'Battery passport scope', excerpt: null, location: 'EUR-Lex, Art. 77', tag: 'R' },
-    'ev-art55': { claim: 'Producer registration and take-back', excerpt: null, location: 'EUR-Lex, producer obligations', tag: 'R' },
+    // PAS: SOURCE Reg. (EU) 2023/1542 full text on EUR-Lex, copied 4 Nov 2026 (all regulation cards below)
+    'ev-art13-4': { claim: 'Collection symbol is required', location: 'EUR-Lex, Art. 13(4)', tag: 'R', highlight: 'shall be marked with the symbol for separate collection',
+      excerpt: 'From 18 August 2025, all batteries shall be marked with the symbol for separate collection of batteries …' },
+    'ev-art13-1': { claim: 'General label is required', location: 'EUR-Lex, Art. 13(1)', tag: 'R', highlight: 'shall bear a label containing the general information on batteries',
+      excerpt: '… batteries shall bear a label containing the general information on batteries set out in Part A of Annex VI.' },
+    'ev-art13-6': { claim: 'QR code is required', location: 'EUR-Lex, Art. 13(6)', tag: 'R', highlight: 'all batteries shall be marked with a QR code as described in Part C of Annex VI',
+      excerpt: 'From 18 February 2027, all batteries shall be marked with a QR code as described in Part C of Annex VI.' },
+    'ev-art14': { claim: 'State of health covers other battery types', location: 'EUR-Lex, Art. 14(1)', tag: 'R',
+      highlight: 'shall be contained in the battery management system of stationary battery energy storage systems',
+      excerpt: '… shall be contained in the battery management system of stationary battery energy storage systems, LMT batteries and electric vehicle batteries.' },
+    'ev-art3': { claim: 'Definition of a portable battery', location: 'EUR-Lex, Art. 3(1)(9)', tag: 'R', highlight: 'weighs 5 kg or less, is not designed specifically for industrial use',
+      excerpt: '‘portable battery’ means a battery that is sealed, weighs 5 kg or less, is not designed specifically for industrial use and is neither an electric vehicle battery, an LMT battery, nor an SLI battery' },
+    'ev-art11': { claim: 'Portable batteries must be removable by the end-user', location: 'EUR-Lex, Art. 11(1)', tag: 'R',
+      highlight: 'shall ensure that those batteries are readily removable and replaceable by the end-user',
+      excerpt: 'Any natural or legal person that places on the market products incorporating portable batteries shall ensure that those batteries are readily removable and replaceable by the end-user at any time during the lifetime of the product.' },
+    'ev-art11-3': { claim: 'Exemption for continuous power supply', location: 'EUR-Lex, Art. 11(3)', tag: 'R', highlight: 'continuity of power supply is necessary and a permanent connection',
+      excerpt: 'The obligations laid down in paragraph 1 shall not apply where continuity of power supply is necessary and a permanent connection between the product and the respective portable battery is required to ensure the safety of the user and the appliance or, for products that collect and supply data as their main function, for data integrity reasons.' },
+    'ev-art48': { claim: 'Due-diligence policy is required', location: 'EUR-Lex, Art. 48(1), original text', tag: 'R',
+      highlight: 'shall fulfil the due diligence obligations laid down in paragraphs 2 and 3',
+      excerpt: 'From 18 August 2025, economic operators that place batteries on the market or put them into service shall fulfil the due diligence obligations laid down in paragraphs 2 and 3 of this Article … (start date moved to 18 Aug 2027 by Reg. (EU) 2025/1561)' },
+    'ev-art77': { claim: 'Battery passport covers other battery types', location: 'EUR-Lex, Art. 77(1)', tag: 'R', highlight: 'each industrial battery with a capacity greater than 2 kWh',
+      excerpt: 'From 18 February 2027 each LMT battery, each industrial battery with a capacity greater than 2 kWh and each electric vehicle battery placed on the market or put into service shall have an electronic record (‘battery passport’).' },
+    'ev-art55': { claim: 'Producers must register', location: 'EUR-Lex, Art. 55(2)', tag: 'R', highlight: 'submit an application for registration in each Member State',
+      excerpt: 'Producers shall register in the register referred to in paragraph 1. They shall to that end submit an application for registration in each Member State where they make a battery available on the market for the first time.' },
   },
 };
 
@@ -316,7 +347,7 @@ function removabilityCall(p) {
   }
   // PAS: WHY built-in battery on a continuously used device: an exemption may apply, an expert decides
   if (p.continuousUse) {
-    return { applies: true, colour: 'purple', reasoning: `${p.name} has a built-in battery and is used continuously. Art. 11(3) lists exemptions that may cover it; Regulatory Affairs must decide.` };
+    return { applies: true, colour: 'purple', reasoning: `${p.name} has a built-in battery and is used continuously. Art. 11(3) exempts products that need continuity of power supply and a permanent battery connection for safety or data integrity; Regulatory Affairs must decide whether that covers it.` };
   }
   // PAS: WHY otherwise removability applies and the fix is a design change, so the case goes to R&D
   return { applies: true, colour: 'red', productChange: true,
@@ -381,7 +412,7 @@ function suggestTeam(c) {
 function productEvidenceIds(p) { return p.evidence || ['ev-' + p.id]; }
 
 function requirementEvidenceIds(r) {
-  const ids = [r.evidence];
+  const ids = [].concat(r.evidence);
   if (r.portable === 'not-applicable') ids.push('ev-art3');
   if (r.sopSearch) ids.push('sop-' + r.id);
   return ids;
@@ -395,7 +426,7 @@ function evidenceIds(c) {
 // Most cards live in DATA.evidence; SOP searches and product pages without a quote are built here
 function getEvidence(id) {
   const stored = DATA.evidence[id];
-  if (stored) return { ...stored, url: stored.url || (stored.tag === 'R' ? DATA.regulation.url : null) };
+  if (stored) return { ...stored, url: stored.url || (stored.tag === 'R' ? DATA.regulation.textUrl : null) };
   if (id.startsWith('sop-')) {
     const r = requirement(id.slice(4));
     // PAS: SIMULATED SOP search result over the illustrative SOP library
@@ -455,7 +486,7 @@ function freshState() {
 
 function resetDemo() {
   state = freshState();
-  location.hash = '#alert';
+  location.hash = '#home';
   render();
 }
 
@@ -487,6 +518,20 @@ function sourceBadge(tag, url) {
   if (tag === 'AI') return '<span class="ai-chip">✦ AI</span>';
   const names = { P: 'Public', R: 'Regulation', A: 'Assumed', I: 'Illustrative' };
   return url ? `<a class="badge" href="${url}" target="_blank" rel="noopener">${names[tag]} ↗</a>` : `<span class="badge">${names[tag]}</span>`;
+}
+
+// PAS: DEMO source links carry a text fragment (#:~:text=…): the browser jumps to the quoted words and highlights them
+function sourceUrl(ev) {
+  if (!ev.url || !ev.highlight) return ev.url;
+  return `${ev.url}#:~:text=${encodeURIComponent(ev.highlight).replace(/-/g, '%2D')}`;
+}
+function requirementSourceUrl(r) { return sourceUrl(getEvidence([].concat(r.evidence)[0])); }
+function productSourceUrl(p) { return sourceUrl(getEvidence(productEvidenceIds(p)[0])) || p.url; }
+
+function statusHtml(c) {
+  if (c.signed) return humanChip(c.signed.by, 'signed');
+  if (c.confirmed) return humanChip(c.confirmed.by, 'confirmed');
+  return '<span class="ai-chip">✦ AI</span> <span class="small muted">not yet confirmed</span>';
 }
 
 function aiBlock(title, body) {
@@ -521,6 +566,87 @@ function switchUser(id) {
   render();
 }
 
+// ---- Overview: the portfolio and the regulations that need my attention
+
+function worstOpen(cases) { return cases.filter(c => c.colour !== 'green').sort(compareCases)[0]; }
+
+function renderHome() {
+  const cases = allCases();
+  const openCases = cases.filter(c => c.colour !== 'green').length;
+  const affected = DATA.products.filter(p => p.hasBattery).length;
+  const applying = DATA.requirements.filter(r => r.portable === 'applies');
+  const next = applying.map(r => r.from).filter(d => daysLeft(d) >= 0).sort()[0];
+  const others = DATA.regulations.map(reg => `
+    <tr><td><a href="${reg.url}" target="_blank" rel="noopener"><b>${reg.name}</b></a><div class="small muted">${reg.code}</div></td>
+      <td><span class="status">${reg.status}</span> ${sourceBadge('I')}</td><td>${reg.products}</td><td class="small">${reg.action}</td></tr>`).join('');
+  const attention = 1 + DATA.regulations.filter(reg => reg.attention).length;
+  const categories = [...new Set(DATA.products.map(p => p.category))];
+  const portfolio = categories.map(category => {
+    const rows = DATA.products.filter(p => p.category === category).map(p => {
+      const pc = DATA.requirements.map(r => state.cases[p.id + '-' + r.id]);
+      const worst = worstOpen(pc);
+      return `
+        <tr><td><a href="#product/${p.id}"><b>${p.name}</b></a><div class="small muted">${p.use}</div></td>
+          <td>${p.battery} ${sourceBadge(p.batteryTag)}</td>
+          <td><div class="bar" style="width: 140px">${pc.map(c => `<span class="lv-${c.colour}"></span>`).join('')}</div>
+            <span class="small">${worst ? LEVEL_LABEL[worst.colour] : 'Done'} · ${pc.filter(c => c.colour !== 'green').length} open</span></td></tr>`;
+    }).join('');
+    return `<tr><td colspan="3" class="label" style="background: var(--bg)">${category}</td></tr>${rows}`;
+  }).join('');
+  return `
+    <div class="label">Overview · ${fmtDate(DATA.today)}</div>
+    <h1>Good morning, ${me().name.split(' ')[0]}</h1>
+    <div class="grid3">
+      <div class="card"><div class="label">Need my attention</div><div class="big">${attention}</div><div class="small muted">regulations</div></div>
+      <div class="card"><div class="label">Regulations monitored</div><div class="big">${DATA.regulations.length + 1}</div><div class="small muted">for ${DATA.businessUnit}</div></div>
+      <div class="card"><div class="label">Products in portfolio</div><div class="big">${DATA.products.length}</div><div class="small muted">synced from ${DATA.catalogue.site}, ${DATA.catalogue.date}</div></div>
+      <div class="card"><div class="label">Open Pre-Assessment cases</div><div class="big">${openCases}</div><div class="small muted">${cases.filter(needsMe).length} need you</div></div>
+    </div>
+    <div class="card">
+      <h3>Regulations that need my attention</h3>
+      <table class="list"><tr><th>Regulation</th><th>Status</th><th>Products affected</th><th>Next step</th></tr>
+        <tr><td><a href="#alert"><b>${DATA.regulation.name}</b></a> <span class="status">New alert</span><div class="small muted">${DATA.regulation.code}</div></td>
+          <td><span class="ai-chip">✦ AI</span> Applicability detected</td><td><b>${affected} of ${DATA.products.length}</b> · next obligation ${fmtDate(next)} ${deadlineChip(next)}</td>
+          <td><a class="btn" href="#alert">Open alert →</a></td></tr>
+        ${others}
+      </table>
+    </div>
+    <div class="card">
+      <h3>Portfolio · ${DATA.businessUnit}</h3>
+      <p class="small muted">Status against the ${DATA.regulation.name}, one bar segment per obligation. Other regulations are not tracked per product in this prototype.</p>
+      <table class="list"><tr><th>Product</th><th>Battery</th><th>${DATA.regulation.name}</th></tr>${portfolio}</table>
+    </div>`;
+}
+
+// ---- Product page: one product against every obligation
+
+function renderProduct(productId) {
+  const p = product(productId) || DATA.products[0];
+  const rows = DATA.requirements.map(r => {
+    const c = state.cases[p.id + '-' + r.id];
+    return `
+      <tr><td><span class="lv lv-${c.colour}"></span> <a href="#assess/${r.id}/${p.id}"><b>${r.id}</b> ${r.title}</a><div class="small muted">${r.article} · ${fmtDate(r.from)}</div></td>
+        <td>${LEVEL_LABEL[c.colour]}</td><td>${c.team ? team(c.team).name : '<span class="muted">not routed</span>'}</td><td>${statusHtml(c)}</td></tr>`;
+  }).join('');
+  return `
+    <div class="crumbs small"><a href="#home">Overview</a> › <a href="#alert">Regulatory alert</a> › ${p.name}</div>
+    <h1>${p.name}</h1>
+    <div class="grid">
+      <div class="card"><h3>Product facts</h3>
+        <dl class="form">
+          <dt>Category</dt><dd>${p.category}</dd>
+          <dt>Use</dt><dd>${p.use}</dd>
+          <dt>SKU</dt><dd>${p.sku ? `<a href="${productSourceUrl(p)}" target="_blank" rel="noopener">${p.sku} ↗</a>` : '<span class="muted">No catalogue match</span>'}</dd>
+          <dt>Battery</dt><dd>${p.battery} ${sourceBadge(p.batteryTag)}</dd>
+          ${p.hasBattery ? `<dt>User-changeable</dt><dd>${p.userChangeable ? 'Yes' : 'Not confirmed'}</dd><dt>Continuous use</dt><dd>${p.continuousUse ? 'Yes' : 'No'} ${sourceBadge('A')}</dd>` : ''}
+        </dl></div>
+      <div class="card"><h3>Evidence for the battery facts</h3>${productEvidenceIds(p).map(evidenceHtml).join('')}</div>
+    </div>
+    <div class="card"><h3>${DATA.regulation.name} · every obligation for this product</h3>
+      <table class="list"><tr><th>Obligation</th><th>Readiness</th><th>Team</th><th>Status</th></tr>${rows}</table>
+    </div>`;
+}
+
 // ---- Screen 1 · Regulatory alert: what came in, what it asks, which products we checked
 
 function renderAlert() {
@@ -533,11 +659,11 @@ function renderAlert() {
       <td>${fmtDate(r.from)}<br>${deadlineChip(r.from)}</td>
       <td>${r.portable === 'applies' ? 'Applies' : 'Not for portable batteries'} <span class="ai-chip">✦ AI</span></td></tr>`).join('');
   const products = DATA.products.map(p => `
-    <tr><td><b>${p.name}</b><div class="small muted">${p.use}</div></td>
+    <tr><td><a href="#product/${p.id}"><b>${p.name}</b></a><div class="small muted">${p.use}</div></td>
       <td>${p.battery} ${sourceBadge(p.batteryTag)}</td>
-      <td>${p.url ? `<a href="${p.url}" target="_blank" rel="noopener">${new URL(p.url).hostname.replace('www.', '')} ${p.sku} ↗</a>` : '<span class="muted">No catalogue match</span>'}</td></tr>`).join('');
+      <td>${p.url ? `<a href="${productSourceUrl(p)}" target="_blank" rel="noopener">${new URL(p.url).hostname.replace('www.', '')} ${p.sku} ↗</a>` : '<span class="muted">No catalogue match</span>'}</td></tr>`).join('');
   return `
-    <div class="label">Regulatory alert · new regulation · ${DATA.catalogue.date}</div>
+    <div class="crumbs small"><a href="#home">Overview</a> › Regulatory alert · received ${DATA.regulation.received}</div>
     <h1>${DATA.regulation.name} <span class="muted">${DATA.regulation.code}</span></h1>
     <div class="grid">
       <div class="card">
@@ -561,7 +687,7 @@ function renderAlert() {
         <table class="list"><tr><th>Obligation</th><th>Effective</th><th>For our products</th></tr>${obligations}</table>
       </div>
       <div class="card">
-        <h3>Products checked</h3>
+        <h3>Products checked · click one for its details</h3>
         <p class="small muted">Synced from the ${DATA.catalogue.site} catalogue on ${DATA.catalogue.date}: ${DATA.catalogue.scraped} products in ${DATA.catalogue.categories} categories, duplicates removed, ${total} in scope.
           <a href="${DATA.catalogue.url}" target="_blank" rel="noopener">Catalogue ↗</a></p>
         <table class="list"><tr><th>Product</th><th>Battery</th><th>Source</th></tr>${products}</table>
@@ -601,14 +727,60 @@ function renderAssess(reqId, productId) {
   const chips = LEVELS.map(level => `<span class="chip"><span class="lv lv-${level}"></span> ${LEVEL_LABEL[level]} <b>${cases.filter(c => c.colour === level).length}</b></span>`).join('');
   const c = productId && state.cases[productId + '-' + r.id];
   return `
-    <div class="row" style="margin-bottom: 12px">
-      <h1 style="margin: 0">Assess and route</h1>
-      <label style="margin-left: auto"><input type="checkbox" ${state.mineOnly ? 'checked' : ''} onchange="toggleMine()"> Only what needs me</label>
-    </div>
-    <div class="row" style="margin-bottom: 14px">${chips}</div>
+    ${regulationHeaderHtml()}
+    <div class="row" style="margin-bottom: 14px">${chips}
+      <label style="margin-left: auto"><input type="checkbox" ${state.mineOnly ? 'checked' : ''} onchange="toggleMine()"> Only what needs me</label></div>
     <div class="split">
       <aside class="card">${requirementNavHtml(r.id)}</aside>
       <section>${c ? caseHtml(c) : requirementHtml(r)}</section>
+    </div>`;
+}
+
+// The next open decisions for the logged-in user, most urgent first
+function nextForMe(limit) {
+  return DATA.requirements.flatMap(r => requirementGroups(r.id)).filter(g => g.cases.some(needsMe))
+    .sort((a, b) => compareCases(a.cases[0], b.cases[0])).slice(0, limit);
+}
+
+// PAS: DEMO the regulation header keeps the user in the driver's seat: scope, progress, what is next for me, handover status
+function regulationHeaderHtml() {
+  const cases = allCases();
+  const done = cases.filter(c => c.colour === 'green').length;
+  // Auto-routed "not applicable" cases still wait for a person, so they do not count as handled
+  const routed = cases.filter(c => c.colour !== 'green' && c.colour !== 'greenOutline' && c.routedBy).length;
+  const waiting = cases.filter(c => c.colour === 'greenOutline').length;
+  const open = cases.length - done - routed - waiting;
+  const confirmedByMe = cases.filter(c => c.confirmed && c.confirmed.by === state.user).length;
+  const unrouted = cases.filter(c => c.colour !== 'green' && !c.routedBy).length;
+  const unsigned = cases.filter(c => c.colour === 'greenOutline').length;
+  const affected = DATA.products.filter(p => p.hasBattery).length;
+  const applying = DATA.requirements.filter(r => r.portable === 'applies');
+  const next = applying.map(r => r.from).filter(d => daysLeft(d) >= 0).sort()[0];
+  const share = n => `${(100 * n / cases.length).toFixed(1)}%`;
+  const todo = nextForMe(3).map(g => {
+    const r = requirement(g.cases[0].reqId);
+    return `<li><a href="#assess/${r.id}">${r.id} ${r.short}</a> · <span class="lv lv-${g.colour}"></span> ${LEVEL_LABEL[g.colour]}${g.kind ? ` (${g.kind})` : ''} · ${plural(g.cases.length, 'product')} ${deadlineChip(r.from)}</li>`;
+  }).join('');
+  return `
+    <div class="card">
+      <div class="crumbs small"><a href="#home">Overview</a> › <a href="#alert">Regulatory alert</a> › Assess and route</div>
+      <div class="row"><h2 style="margin: 0">${DATA.regulation.name}</h2><span class="muted">${DATA.regulation.code}</span>
+        ${sourceBadge('R', DATA.regulation.textUrl)}<span class="status">Pre-Assessment in progress</span></div>
+      <div class="grid3">
+        <div><div class="label">Scope</div>
+          <div><b>${affected} of ${DATA.products.length}</b> products affected · ${DATA.businessUnit}</div>
+          <div><b>${applying.length} of ${DATA.requirements.length}</b> obligations apply to portable batteries</div>
+          <div>Next obligation <b>${fmtDate(next)}</b> ${deadlineChip(next)}</div>
+          <div class="small muted">Alert received ${DATA.regulation.received} · owner ${person(team('qr').lead).name}, Q&R</div></div>
+        <div><div class="label">Progress · ${done + routed} of ${cases.length} cases handled</div>
+          <div class="progress"><span style="width: ${share(done)}; background: var(--green)"></span><span style="width: ${share(routed)}; background: var(--ink)"></span></div>
+          <div class="small"><span class="lv lv-green"></span> Done ${done} · <span class="lv" style="background: var(--ink)"></span> Routed ${routed} · <span class="lv lv-greenOutline"></span> Waiting sign-off ${waiting} · Open ${open}</div>
+          <div class="small">You confirmed ${confirmedByMe} · ${cases.filter(needsMe).length} still need you</div></div>
+        <div><div class="label">Next for you, ${me().name.split(' ')[0]}</div>
+          ${todo ? `<ol style="margin: 4px 0; padding-left: 18px">${todo}</ol>` : '<p>Nothing left for you here.</p>'}</div>
+      </div>
+      <div class="row small">Handover: ${unrouted === 0 ? '✓' : '✗'} ${unrouted} not routed · ${unsigned === 0 ? '✓' : '✗'} ${unsigned} "not applicable" waiting for sign-off
+        <a class="btn ghost small" href="#handover" style="margin-left: auto">Go to handover</a></div>
     </div>`;
 }
 
@@ -623,17 +795,15 @@ function requirementHtml(r) {
   const shown = state.mineOnly ? cases.filter(needsMe) : cases;
   const rows = shown.map(c => {
     const p = product(c.productId);
-    const status = c.signed ? humanChip(c.signed.by, 'signed') : c.confirmed ? humanChip(c.confirmed.by, 'confirmed')
-      : '<span class="ai-chip">✦ AI</span> <span class="small muted">not yet confirmed</span>';
     return `
       <tr><td><span class="lv lv-${c.colour}"></span> <a href="#assess/${r.id}/${p.id}"><b>${p.name}</b></a> <span class="small muted">${p.battery}</span></td>
-        <td>${LEVEL_LABEL[c.colour]}</td><td>${c.team ? team(c.team).name : '<span class="muted">not routed</span>'}</td><td>${status}</td></tr>`;
+        <td>${LEVEL_LABEL[c.colour]}</td><td>${c.team ? team(c.team).name : '<span class="muted">not routed</span>'}</td><td>${statusHtml(c)}</td></tr>`;
   }).join('');
   const sop = r.sopSearch ? ` SOP search: closest match ${r.sopSearch.closest}, ${r.sopSearch.finding}` : '';
   const groups = requirementGroups(r.id).map(groupHtml).join('');
   return `
     <div class="card">
-      <div class="label">${r.id} · ${r.topic} · ${r.article} ${sourceBadge('R', DATA.regulation.url)}</div>
+      <div class="label">${r.id} · ${r.topic} · ${r.article} ${sourceBadge('R', requirementSourceUrl(r))}</div>
       <h2>${r.title}</h2>
       <p>${r.plain}</p>
       <p class="small">Effective ${fmtDate(r.from)} ${deadlineChip(r.from)}</p>
@@ -798,14 +968,14 @@ function signOff(cases) {
 function evidenceHtml(id) {
   const ev = getEvidence(id);
   const checked = state.checked[id];
-  // PAS: TODO a placeholder card shows until the exact EUR-Lex text is pasted into DATA.evidence
+  // PAS: WHY facts without a quote (assumed or not on the page) show a dashed note instead of a fake quote
   const body = ev.excerpt
     ? `<blockquote>“${ev.excerpt}”${ev.translation ? `<div class="small muted">Translation: “${ev.translation}”</div>` : ''}</blockquote>`
     : `<p class="todo">${ev.note || 'Paste exact text from EUR-Lex.'}</p>`;
-  const where = ev.url ? `<a href="${ev.url}" target="_blank" rel="noopener">${ev.location} ↗</a>` : ev.location;
+  const where = ev.url ? `<a href="${sourceUrl(ev)}" target="_blank" rel="noopener">${ev.location} ↗</a>` : ev.location;
   return `
     <div class="ev ${checked ? 'checked' : ''}">
-      <div class="row"><b>${ev.claim}</b> ${sourceBadge(ev.tag, ev.url)}</div>
+      <div class="row"><b>${ev.claim}</b> ${sourceBadge(ev.tag, sourceUrl(ev))}</div>
       ${body}
       <div class="small muted">Source: ${where} · retrieved ${DATA.catalogue.date}</div>
       <label class="small"><input type="checkbox" ${checked ? 'checked' : ''} onchange="toggleChecked('${id}')"> Checked by me</label>
@@ -830,12 +1000,12 @@ function caseHtml(c) {
     <div class="grid">
       <div class="card"><h3>${p.name}</h3>
         <dl class="form">
-          <dt>Product page</dt><dd>${p.url ? `<a href="${p.url}" target="_blank" rel="noopener">${p.sku} ↗</a>` : '<span class="muted">No catalogue match</span>'}</dd>
+          <dt>Product</dt><dd><a href="#product/${p.id}">Open product page</a> · ${p.url ? `<a href="${productSourceUrl(p)}" target="_blank" rel="noopener">${p.sku} ↗</a>` : '<span class="muted">no catalogue match</span>'}</dd>
           <dt>Use</dt><dd>${p.use}</dd>
           <dt>Battery</dt><dd>${p.battery} ${sourceBadge(p.batteryTag)}</dd>
         </dl></div>
       <div class="card"><h3>${r.id} ${r.title}</h3>
-        <p class="small">${r.plain} ${sourceBadge('R', DATA.regulation.url)}</p>
+        <p class="small">${r.plain} ${sourceBadge('R', requirementSourceUrl(r))}</p>
         <p class="small">Effective ${fmtDate(r.from)} ${deadlineChip(r.from)}</p></div>
     </div>
     ${aiBlock(`<span class="lv lv-${c.ai.colour}"></span> ${LEVEL_LABEL[c.ai.colour]} · confidence ${c.ai.confidence}`, `<p>${c.ai.reasoning}</p>`)}
@@ -1004,16 +1174,17 @@ function auditLogHtml() {
 
 // PAS: SECTION 6 · Router
 // PAS: WHY hash links: every screen has its own address so the presenter can jump, and it works from disk
-const SCREENS = { alert: renderAlert, assess: renderAssess, handover: renderHandover };
+const SCREENS = { home: renderHome, alert: renderAlert, assess: renderAssess, product: renderProduct, handover: renderHandover };
 
 // PAS: WHY screens return HTML strings: all text comes from DATA in this file; typed text (comments, reasons) goes through esc()
 function render() {
   const [name, reqId, productId] = location.hash.replace('#', '').split('/');
-  const screen = SCREENS[name] ? name : 'alert';
+  const screen = SCREENS[name] ? name : 'home';
   document.getElementById('app').innerHTML = SCREENS[screen](reqId, productId);
   document.getElementById('account').innerHTML = renderAccount();
   document.querySelectorAll('nav a').forEach(link => {
-    link.classList.toggle('active', link.getAttribute('href') === '#' + screen);
+    const navScreen = screen === 'product' ? 'alert' : screen;
+    link.classList.toggle('active', link.getAttribute('href') === '#' + navScreen);
   });
 }
 

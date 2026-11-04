@@ -6,10 +6,12 @@ Built for the REMATIQ × Philips case (AI Deployment Strategist interview, 5 Nov
 
 ## What it shows
 
-The demo follows Anke Weber (Q&R Manager, fictional, shown top right as the logged-in user) through three screens:
+The demo follows Anke Weber (Q&R Manager, fictional, shown top right as the logged-in user) from the Overview through three steps:
 
 | Screen | Hash | One sentence |
 | --- | --- | --- |
+| Overview | `#home` | Regulations that need my attention and the product portfolio; click the EU Battery Regulation to start. |
+| Product page | `#product/P1` | One product's facts, evidence and status against every obligation. |
 | Regulatory alert | `#alert` | What came in (EU Battery Regulation), what it asks (8 obligations with dates) and which 12 products were checked, each with a link to its source. |
 | Assess and route | `#assess/R4` | Requirements on the left, grouped by topic; pick one to see the AI call, the open decisions grouped by outcome, and every product. |
 | Case review | `#assess/R4/P1` | One product × one requirement: facts with source links, AI reasoning, evidence cards; Confirm stays locked until every card is ticked. |
@@ -18,6 +20,7 @@ The demo follows Anke Weber (Q&R Manager, fictional, shown top right as the logg
 - **AI vs human:** blue blocks and `✦ AI` chips are simulated AI output; dark blocks and `✓ Human` chips are decisions by a named person. A legend sits under the top bar on every screen.
 - **Routing to teams:** each open decision suggests a team with the reason. Team cards show function, lead, members, SOPs owned, open cases and turnaround; "Compare all teams" shows them side by side. A case goes to a team queue or a named person.
 - **Sign-off:** only Regulatory Affairs can sign "not applicable". Switch to Jonas Richter in the account menu (top right) to sign.
+- **Highlighted sources:** source links carry a browser text fragment, so Chrome jumps to the quoted words and highlights them.
 - **Comments:** on every requirement and every case; they also go into the audit log.
 
 Colours: red = applies, no SOP · orange = SOP exists, not assessed · purple = unclear, needs expert · green outline = not applicable, needs sign-off · green = done.
@@ -45,9 +48,8 @@ Everything is in `index.html`, in this order: styles, data, rules, state and hel
 | Efficia lithium battery | P | [philips.de HC863304](https://www.philips.de/healthcare/product/HC863304) (German, translated) |
 | Efficia user-changeable batteries | P | Efficia patient monitoring brochure (link still to add) |
 | Battery facts for MX750, MX850, MX40, Avalon CL, EarlyVue VS30, MR400, MR Portal 5000 | A (Assumed) | Product family; no public source matched yet |
-| Art. 13(1), 13(4), 14(1) excerpts | R (Regulation) | Reg. (EU) 2023/1542, as quoted in REMATIQ's demo |
-| Art. 13(6) excerpt | R | Reg. (EU) 2023/1542, matches several secondary sources; verify |
-| Art. 3, 11, 48, 77, producer registration | R | Placeholders; exact text still to be pasted from [EUR-Lex](https://eur-lex.europa.eu/eli/reg/2023/1542/oj) |
+| Art. 3, 11(1), 11(3), 13(1), 13(4), 13(6), 14(1), 48(1), 55(2), 77(1) excerpts | R (Regulation) | Copied verbatim from the [EUR-Lex full text](https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32023R1542), 4 Nov 2026 |
+| Other regulations on the Overview (AI Act, MDR, CRA, RoHS, ESPR) | I | Names and links are real; their status is illustrative. The CRA exclusion of MDR products (Art. 2(2)(a)) is real |
 | Requirement dates | R | Regulation timeline |
 | SOP library (7 SOPs) and SOP search results | I (Illustrative) | Invented for the demo, not Philips data |
 | People (Anke, Jonas, Mei, Sara, Lukas, Tobias) | I | Fictional |
@@ -58,16 +60,10 @@ Everything is in `index.html`, in this order: styles, data, rules, state and hel
 
 From `index.html` (search for `PAS: TODO`):
 
-- [ ] Paste the exact Art. 3 portable battery definition from EUR-Lex.
-- [ ] Paste the exact Art. 11(1) and 11(3) text from EUR-Lex.
-- [ ] Paste the exact Art. 48 text (as amended by Reg. 2025/1561) from EUR-Lex.
-- [ ] Paste the exact Art. 77 text from EUR-Lex.
-- [ ] Confirm the article for producer registration and take-back (shown as "Art. 55 ff. (verify)") and paste its text.
-- [ ] Verify the Art. 13(6) QR code wording against EUR-Lex.
+- [ ] Check the amended Art. 48 text from Reg. (EU) 2025/1561 (the card quotes the original 2023 text and notes the moved date).
 - [ ] Check whether the X3/MX100 battery pack counts as user-replaceable under Art. 11 (it would turn R5 green for both).
 - [ ] Confirm that EarlyVue VS30 is a spot-check device (it makes VS30 the one R&D product-change case).
 - [ ] Link the Efficia brochure PDF directly instead of the catalogue page.
 - [ ] Confirm that Philips calls the function "Q&R" and how the teams are really cut.
-- [ ] Generic: placeholder evidence cards show until the EUR-Lex text is pasted into `DATA.evidence`.
 
 Also from the PRD: match SKUs for MX750, MX850, Avalon CL and EarlyVue VS30, or keep them marked "not matched".
