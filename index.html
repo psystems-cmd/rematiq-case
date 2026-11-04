@@ -535,10 +535,6 @@ function badge(tag) {
 
 // PAS: SECTION 5 · Screens
 // Each screen is one function that returns HTML. Buttons call the small action functions next to it.
-function placeholder(title) {
-  return `<h1>${title}</h1><p class="lead">This screen comes in a later step.</p>`;
-}
-
 // ---- Screen 1 · Intake: what just came in?
 
 function nextObligation() {
@@ -976,6 +972,93 @@ function signGroup(key) {
   render();
 }
 
+// ---- Screen 5 · Handover: into the Emergency Room (Detailed SOP Compliance Assessment)
+
+function renderHandover() {
+  const cases = allCases();
+  const unowned = cases.filter(c => c.colour !== 'green' && !c.owner).length;
+  const unsigned = cases.filter(c => c.colour === 'greenOutline').length;
+  // PAS: DEMO the handover stays locked until every case has an owner and every "not applicable" is signed
+  const locked = unowned > 0 || unsigned > 0;
+  const outputs = locked ? '' : erCasesHtml() + sopRequestsHtml() + routedHtml();
+  return `
+    <div class="label">Emergency Room · handover</div>
+    <h1>Handover</h1>
+    <p class="lead">Triage ends here. Orange cases go to the Detailed SOP Compliance Assessment with the scope pre-filled; red cases leave as SOP requests or R&D changes.</p>
+    <div class="card">
+      <div class="label">Gate</div>
+      <p>${unowned === 0 ? '✓' : '✗'} Every open case has an owner <span class="muted">(${unowned} without)</span></p>
+      <p>${unsigned === 0 ? '✓' : '✗'} Every "not applicable" is signed <span class="muted">(${unsigned} waiting)</span></p>
+      ${locked ? '<a class="btn" href="#routing">Finish in routing</a>' : '<b>Handover unlocked.</b>'}
+    </div>
+    ${outputs}
+    ${auditLogHtml()}`;
+}
+
+// PAS: WHY ER cases mirror REMATIQ's Overview screen (Type, Regulatory documents, SOP documents, Process scope) so they drop straight in
+function erCasesHtml() {
+  const bySop = {};
+  allCases().filter(c => c.colour === 'orange').forEach(c => {
+    const sop = sopCovering(c.reqId);
+    const key = sop ? sop.id : 'none';
+    bySop[key] = bySop[key] || [];
+    bySop[key].push(c);
+  });
+  const cards = Object.entries(bySop).map(([sopId, cases]) => {
+    const sop = DATA.sops.find(s => s.id === sopId);
+    const reqs = [...new Set(cases.map(c => c.reqId))].map(requirement);
+    const products = [...new Set(cases.map(c => product(c.productId).name))];
+    const owners = [...new Set(cases.map(c => personName(c.owner)))];
+    return `
+      <div class="card">
+        <div class="label">Detailed Assessment · Overview · pre-filled</div>
+        <dl class="form">
+          <dt>Type</dt><dd>SOP Compliance Assessment</dd>
+          <dt>Regulatory documents</dt><dd>${DATA.regulation.code}: ${reqs.map(r => `${r.article} ${r.title}`).join(', ')}</dd>
+          <dt>SOP documents</dt><dd>${sop ? `${sop.id} ${sop.title}` : 'To be chosen'}</dd>
+          <dt>Process scope</dt><dd>${products.length} products: ${products.join(', ')}</dd>
+          <dt>Owner</dt><dd>${owners.join(', ')}</dd>
+        </dl>
+      </div>`;
+  }).join('');
+  return `<h2>Cases for the Emergency Room</h2>${cards || '<div class="card muted">No orange cases.</div>'}`;
+}
+
+function sopRequestsHtml() {
+  const requests = [...state.sopRequests].sort((a, b) => personName(a.owner).localeCompare(personName(b.owner)));
+  const rows = requests.map(q => `
+    <tr><td>${personName(q.owner)}</td><td>${q.action}</td><td>${q.reqId} ${requirement(q.reqId).title}</td><td>${personName(q.approver)}</td></tr>`).join('');
+  const body = rows
+    ? `<table class="list"><tr><th>Owner</th><th>Request</th><th>Requirement</th><th>Approver</th></tr>${rows}</table>`
+    : '<p class="muted">No SOP requests yet. Open the new-SOP starter on a red group in Routing.</p>';
+  return `<h2>SOP requests per owner</h2><div class="card">${body}</div>`;
+}
+
+function routedHtml() {
+  const rows = caseGroups().filter(g => g.colour === 'red' || g.colour === 'purple').map(g => {
+    const owners = [...new Set(g.cases.map(c => personName(c.owner)))];
+    return `
+      <tr><td><span class="lv lv-${g.colour}"></span> ${g.label}</td><td>${owners.join(', ')}</td>
+      <td>${g.cases.length}</td><td>${suggestOwner(g.cases[0]).reason}</td></tr>`;
+  }).join('');
+  return `
+    <h2>Other routed cases</h2>
+    <div class="card"><table class="list">
+      <tr><th>Case group</th><th>Owner</th><th>Cases</th><th>Why</th></tr>${rows}
+    </table></div>`;
+}
+
+// PAS: WHY the audit log: signed decisions are the evidence for "why did you decide this does not apply?"
+function auditLogHtml() {
+  // esc() because the override reason is typed by the user
+  const rows = state.log.map(entry => `
+    <tr><td class="small muted">${entry.time}</td><td>${esc(entry.actor)}</td><td>${esc(entry.text)}</td></tr>`).join('');
+  const body = rows
+    ? `<table class="list"><tr><th>Time</th><th>Who</th><th>What</th></tr>${rows}</table>`
+    : '<p class="muted">No entries yet.</p>';
+  return `<h2>Audit log</h2><div class="card">${body}</div>`;
+}
+
 // PAS: SECTION 6 · Router
 // PAS: WHY hash links: every screen has its own address so the presenter can jump, and it works from disk
 const SCREENS = {
@@ -983,7 +1066,7 @@ const SCREENS = {
   triage: renderTriage,
   case: renderCase,
   routing: renderRouting,
-  handover: () => placeholder('Handover'),
+  handover: renderHandover,
 };
 
 // PAS: WHY screens return HTML strings: all text comes from DATA in this file; the one typed field (override reason) is escaped with esc()
