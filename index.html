@@ -430,6 +430,43 @@ function getEvidence(id) {
   return { claim: `${p.name}: ${p.battery}`, excerpt: null, note, location: where, tag: p.batteryTag, status: p.batteryTag === 'A' ? 'Assumed' : 'Catalogue listing' };
 }
 
+// PAS: WHY the board sorts by colour first, then by deadline: the most urgent open work comes first
+function compareCases(a, b) {
+  const byColour = LEVELS.indexOf(a.colour) - LEVELS.indexOf(b.colour);
+  if (byColour !== 0) return byColour;
+  return requirement(a.reqId).from.localeCompare(requirement(b.reqId).from);
+}
+
+// PAS: WHY cases are grouped by reason: nine products with the same QR-code gap are one decision, not nine
+function groupLabel(c) {
+  const p = product(c.productId);
+  if (!p.hasBattery) return p.batteryTag === 'A' ? 'No battery (assumed)' : 'No battery';
+  const r = requirement(c.reqId);
+  const suffix = c.ai.productChange && c.colour === 'red' ? ' (product change)' : '';
+  return `${r.id} · ${r.short}${suffix}`;
+}
+
+// Open cases (everything not green), grouped by colour and reason, most urgent group first
+function caseGroups() {
+  const groups = [];
+  allCases().filter(c => c.colour !== 'green').sort(compareCases).forEach(c => {
+    const key = c.colour + ' · ' + groupLabel(c);
+    let group = groups.find(g => g.key === key);
+    if (!group) {
+      group = { key, colour: c.colour, label: groupLabel(c), cases: [] };
+      groups.push(group);
+    }
+    group.cases.push(c);
+  });
+  return groups;
+}
+
+// A deadline chip only makes sense when the whole group shares one requirement
+function groupDeadline(g) {
+  const reqIds = new Set(g.cases.map(c => c.reqId));
+  return reqIds.size === 1 ? deadlineChip(requirement(g.cases[0].reqId).from) : '';
+}
+
 // PAS: SECTION 4 · State and helpers
 // PAS: WHY state lives in memory only: no database, no browser storage; reload or "Reset demo" starts over
 let state = freshState();
@@ -454,6 +491,10 @@ function resetDemo() {
 
 function allCases() {
   return Object.values(state.cases);
+}
+
+function plural(count, word) {
+  return `${count} ${word}${count === 1 ? '' : 's'}`;
 }
 
 function caseName(c) {
@@ -552,11 +593,76 @@ function startTriage() {
   location.hash = '#triage';
 }
 
+// ---- Screen 2 · Triage board: does it apply, how ready are we?
+
+// "Needs my decision": open cases that Anke has neither confirmed nor handed to someone
+function needsMyDecision(c) {
+  return c.colour !== 'green' && !c.confirmed && !c.owner;
+}
+
+function initials(personId) {
+  if (!personId) return '';
+  return personName(personId).split(' ').map(word => word[0]).join('');
+}
+
+function cellHtml(c) {
+  const dim = state.mineOnly && !needsMyDecision(c) ? 'dim' : '';
+  const mark = initials(c.owner) || (c.confirmed ? '✓' : '');
+  return `<a class="cell lv-${c.colour} ${dim}" href="#case/${c.id}" title="${caseName(c)}: ${LEVEL_LABEL[c.colour]}">${mark}</a>`;
+}
+
+function renderTriage() {
+  const cases = allCases();
+  const chips = LEVELS.map(level => {
+    const count = cases.filter(c => c.colour === level).length;
+    return `<span class="chip"><span class="lv lv-${level}"></span> ${LEVEL_LABEL[level]} <b>${count}</b></span>`;
+  }).join('');
+  const head = DATA.requirements.map(r => `
+    <th><b>${r.id}</b><div class="small muted">${r.short}</div><div class="small">${fmtDate(r.from)}</div>${deadlineChip(r.from)}</th>`).join('');
+  const categories = [...new Set(DATA.products.map(p => p.category))];
+  let body = '';
+  categories.forEach(category => {
+    body += `<tr class="cat"><td colspan="${DATA.requirements.length + 1}" class="label">${category}</td></tr>`;
+    DATA.products.filter(p => p.category === category).forEach(p => {
+      const cells = DATA.requirements.map(r => `<td>${cellHtml(state.cases[p.id + '-' + r.id])}</td>`).join('');
+      body += `<tr><td><b>${p.name}</b><div class="small muted">${p.battery} ${badge(p.batteryTag)}</div></td>${cells}</tr>`;
+    });
+  });
+  const queue = caseGroups().map(g => `
+    <div class="row" style="padding: 4px 0">
+      <span class="lv lv-${g.colour}"></span>
+      <a href="#case/${g.cases[0].id}">${g.label}</a>
+      <span class="small muted">${LEVEL_LABEL[g.colour]} · ${plural(g.cases.length, 'case')}</span>
+      ${groupDeadline(g)}
+    </div>`).join('');
+  return `
+    <div class="label">Triage · does it apply, how ready are we?</div>
+    <h1>Triage board</h1>
+    <p class="lead">Every product against every requirement of the Battery Regulation. Click a cell to review the case. Letters in a cell show its owner, ✓ means confirmed.</p>
+    <div class="row" style="margin-bottom: 16px">${chips}</div>
+    <div class="card">
+      <div class="row" style="margin-bottom: 8px">
+        <label><input type="checkbox" ${state.mineOnly ? 'checked' : ''} onchange="toggleMine()"> Needs my decision</label>
+        <a class="btn" href="#routing" style="margin-left: auto">Go to routing</a>
+      </div>
+      <div class="scroll"><table class="matrix"><tr><th>Product</th>${head}</tr>${body}</table></div>
+    </div>
+    <div class="card">
+      <div class="label">Queue · sorted by colour, then deadline</div>
+      ${queue || '<p class="muted">Nothing open.</p>'}
+    </div>`;
+}
+
+function toggleMine() {
+  state.mineOnly = !state.mineOnly;
+  render();
+}
+
 // PAS: SECTION 6 · Router
 // PAS: WHY hash links: every screen has its own address so the presenter can jump, and it works from disk
 const SCREENS = {
   intake: renderIntake,
-  triage: () => placeholder('Triage board'),
+  triage: renderTriage,
   case: () => placeholder('Case review'),
   routing: () => placeholder('Routing'),
   handover: () => placeholder('Handover'),
