@@ -834,13 +834,155 @@ function signOff(cases) {
   addLog('Jonas Richter (simulated)', `Signed "not applicable" for ${cases.map(caseName).join(', ')}`);
 }
 
+// ---- Screen 4 · Routing: who takes it next?
+
+function renderRouting() {
+  const unowned = allCases().filter(c => c.colour !== 'green' && !c.owner).length;
+  const groups = caseGroups().map(groupHtml).join('');
+  return `
+    <div class="label">Triage · who takes it?</div>
+    <h1>Routing</h1>
+    <p class="lead">Open cases, grouped by the AI's reason. Each group gets a suggested owner with the reason; change any of them. A case cannot leave triage without an owner.</p>
+    <div class="row" style="margin-bottom: 16px">
+      <button class="btn" onclick="routeAllRed()">Route all red</button>
+      <span class="muted">${plural(unowned, 'open case')} without an owner</span>
+      <a class="btn ghost" href="#handover" style="margin-left: auto">Go to handover</a>
+    </div>
+    ${groups || '<p class="muted">Nothing open.</p>'}`;
+}
+
+function groupHtml(g) {
+  const first = g.cases[0];
+  const suggestion = suggestOwner(first);
+  const products = [...new Set(g.cases.map(c => product(c.productId).name))];
+  const owners = [...new Set(g.cases.map(c => c.owner))];
+  const sharedOwner = owners.length === 1 ? owners[0] : null;
+  let status = '';
+  if (sharedOwner) status = `<b>✓ Routed to ${personName(sharedOwner)}</b>`;
+  else if (owners.some(Boolean)) status = '<span class="muted">Partly routed</span>';
+  const r = requirement(first.reqId);
+  // Red groups open the new-SOP starter; "not applicable" groups open the sign-off
+  let panelLabel = '';
+  if (g.colour === 'red' && r.starter && !first.ai.productChange) panelLabel = 'New-SOP starter';
+  if (g.colour === 'greenOutline') panelLabel = 'Evidence and sign-off';
+  const isOpen = state.openGroup === g.key;
+  let panel = '';
+  if (isOpen && g.colour === 'red') panel = sopStarterHtml(r);
+  if (isOpen && g.colour === 'greenOutline') panel = signOffHtml(g);
+  return `
+    <div class="card">
+      <div class="row">
+        <span class="lv lv-${g.colour}"></span><b>${g.label}</b>
+        <span class="small muted">${LEVEL_LABEL[g.colour]} · ${plural(g.cases.length, 'case')}</span>
+        ${groupDeadline(g)}
+      </div>
+      <p class="small muted">${products.join(', ')}</p>
+      <div class="row">
+        <span>Suggested: <b>${personName(suggestion.owner)}</b> · ${suggestion.reason}</span>
+        <button class="btn ghost" onclick="assignGroup('${g.key}', '${suggestion.owner}')">Accept</button>
+        <select onchange="assignGroup('${g.key}', this.value)">${ownerOptions(sharedOwner)}</select>
+        ${status}
+        ${panelLabel ? `<button class="btn ghost" style="margin-left: auto" onclick="toggleGroup('${g.key}')">${isOpen ? 'Close' : panelLabel}</button>` : ''}
+      </div>
+      ${panel}
+    </div>`;
+}
+
+function sopStarterHtml(r) {
+  const s = r.starter;
+  const mode = state.starterMode[r.id] || s.mode;
+  const request = state.sopRequests.find(q => q.reqId === r.id);
+  const outline = Object.entries(s.outline).map(([heading, text]) => `<dt>${heading}</dt><dd>${text}</dd>`).join('');
+  const action = request
+    ? `<b>✓ SOP request sent: ${request.action}</b>`
+    : `<button class="btn" onclick="requestSop('${r.id}')">Create SOP request</button>`;
+  return `
+    <div class="card sim" style="margin: 12px 0 0">
+      <div class="label">New-SOP starter · AI draft, not approved ${badge('S')}</div>
+      <dl class="form">
+        <dt>Action</dt>
+        <dd><select onchange="setStarterMode('${r.id}', this.value)">
+          <option value="extend" ${mode === 'extend' ? 'selected' : ''}>Extend ${s.extendSop}</option>
+          <option value="create" ${mode === 'create' ? 'selected' : ''}>Create new ${s.newSop}</option>
+        </select></dd>
+        <dt>Owner</dt><dd>${personName(s.owner)}</dd>
+        <dt>Approver</dt><dd>${personName(s.approver)}</dd>
+        ${outline}
+      </dl>
+      ${action}
+    </div>`;
+}
+
+// PAS: WHY a group sign-off checks the shared reason once (e.g. the Art. 77 scope) and applies it to every case in the group
+function groupEvidenceIds(g) {
+  const first = g.cases[0];
+  const p = product(first.productId);
+  // No-battery groups rest on each product's fact; requirement groups rest on the regulation text
+  if (!p.hasBattery) return [...new Set(g.cases.map(c => productEvidenceId(product(c.productId))))];
+  return evidenceIds(first).filter(id => id !== productEvidenceId(p));
+}
+
+function signOffHtml(g) {
+  const ids = groupEvidenceIds(g);
+  const allChecked = ids.every(id => state.checked[id]);
+  return `
+    <div style="margin-top: 12px">
+      ${ids.map(evidenceHtml).join('')}
+      <button class="btn" ${allChecked ? '' : 'disabled'} onclick="signGroup('${g.key}')">Sign off ${plural(g.cases.length, 'case')} as Jonas Richter (simulated)</button>
+      ${allChecked ? '' : '<span class="small muted">Tick every card to unlock.</span>'}
+    </div>`;
+}
+
+function findGroup(key) {
+  return caseGroups().find(g => g.key === key);
+}
+
+function toggleGroup(key) {
+  state.openGroup = state.openGroup === key ? null : key;
+  render();
+}
+
+function assignGroup(key, personId) {
+  const g = findGroup(key);
+  g.cases.forEach(c => { c.owner = personId || null; });
+  addLog('Anke Weber', `Routed ${plural(g.cases.length, 'case')} (${g.label}) to ${personName(personId)}`);
+  render();
+}
+
+function routeAllRed() {
+  const red = allCases().filter(c => c.colour === 'red' && !c.owner);
+  red.forEach(c => { c.owner = suggestOwner(c).owner; });
+  addLog('Anke Weber', `Routed all ${plural(red.length, 'red case')} to their suggested owners`);
+  render();
+}
+
+function setStarterMode(reqId, mode) {
+  state.starterMode[reqId] = mode;
+}
+
+function requestSop(reqId) {
+  const s = requirement(reqId).starter;
+  const mode = state.starterMode[reqId] || s.mode;
+  const action = mode === 'extend' ? `Extend ${s.extendSop}` : `Create ${s.newSop}`;
+  state.sopRequests.push({ reqId, action, owner: s.owner, approver: s.approver });
+  addLog('Anke Weber', `SOP request for ${reqId}: ${action}; owner ${personName(s.owner)}, approver ${personName(s.approver)}`);
+  render();
+}
+
+function signGroup(key) {
+  const g = findGroup(key);
+  signOff(g.cases);
+  state.openGroup = null;
+  render();
+}
+
 // PAS: SECTION 6 · Router
 // PAS: WHY hash links: every screen has its own address so the presenter can jump, and it works from disk
 const SCREENS = {
   intake: renderIntake,
   triage: renderTriage,
   case: renderCase,
-  routing: () => placeholder('Routing'),
+  routing: renderRouting,
   handover: () => placeholder('Handover'),
 };
 
