@@ -9,15 +9,8 @@
 /* PAS: SECTION 1 · Styles */
 /* PAS: WHY colour is reserved for the five triage levels; everything else stays neutral */
 :root {
-  --bg: #f2f0f6;
-  --card: #ffffff;
-  --ink: #2e1a33;
-  --muted: #74687a;
-  --line: #e4e0ea;
-  --red: #d64541;
-  --orange: #ea8a2a;
-  --purple: #7c55c8;
-  --green: #2e9b68;
+  --bg: #f2f0f6; --card: #ffffff; --ink: #2e1a33; --muted: #74687a; --line: #e4e0ea;
+  --red: #d64541; --orange: #ea8a2a; --purple: #7c55c8; --green: #2e9b68;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 * { box-sizing: border-box; }
@@ -111,16 +104,12 @@ dl.form dd { margin: 0; }
 // Source tags: P = public catalogue, R = regulation text, A = assumed, I = illustrative, S = simulated
 const DATA = {
   today: '2026-11-04',
-
   // PAS: SOURCE Regulation (EU) 2023/1542 on EUR-Lex
   regulation: { code: 'EU Regulation 2023/1542', name: 'EU Battery Regulation', url: 'https://eur-lex.europa.eu/eli/reg/2023/1542/oj' },
-
   // PAS: SOURCE illustrative second alert, only there to show what "Not applicable" looks like
   otherAlert: { name: 'EU Toy Safety Regulation', reason: 'None of the 12 products is a toy.' },
-
   // PAS: SOURCE public philips.de catalogue scrape, 4 Nov 2026
   catalogue: { site: 'philips.de', date: '4 Nov 2026', scraped: '1,270', categories: 14 },
-
   // Products are listed in board order. sku: null means no catalogue match yet.
   // batteryTag says where the battery fact comes from (P public, A assumed).
   products: [
@@ -162,7 +151,6 @@ const DATA = {
     { id: 'P8', name: 'Monitor mount', sku: 'HC989803195571', category: 'Central monitoring and mounts', use: 'Stands and mounts',
       battery: 'No battery', batteryTag: 'P', hasBattery: false },
   ],
-
   // portable: does the requirement apply to portable batteries at all?
   // sopSearch: the simulated SOP search result (illustrative SOP library)
   // starter: the new-SOP starter offered when no SOP covers the requirement
@@ -210,14 +198,11 @@ const DATA = {
       } } },
     // PAS: SOURCE Reg. (EU) 2023/1542 Art. 77
     { id: 'R7', short: 'Battery passport', title: 'Battery passport', article: 'Art. 77', from: '2027-02-18', portable: 'not-applicable',
-      scopeText: 'EV, LMT and industrial batteries above 2 kWh',
-      plain: 'Each EV, LMT and industrial battery above 2 kWh gets a digital battery passport.', evidence: 'ev-art77' },
+      scopeText: 'EV, LMT and industrial batteries above 2 kWh', plain: 'Each EV, LMT and industrial battery above 2 kWh gets a digital battery passport.', evidence: 'ev-art77' },
     // PAS: SOURCE Reg. (EU) 2023/1542 Art. 14
     { id: 'R8', short: 'State of health', title: 'State-of-health data', article: 'Art. 14', from: '2024-08-18', portable: 'not-applicable',
-      scopeText: 'stationary battery energy storage systems, LMT and EV batteries',
-      plain: 'The battery management system stores state-of-health data for stationary, LMT and EV batteries.', evidence: 'ev-art14' },
+      scopeText: 'stationary battery energy storage systems, LMT and EV batteries', plain: 'The battery management system stores state-of-health data for stationary, LMT and EV batteries.', evidence: 'ev-art14' },
   ],
-
   // covers: requirements the SOP addresses; assessed: requirements a Detailed Assessment has already confirmed
   sops: [
     // PAS: SOURCE illustrative SOP library, not Philips data (all 7 rows)
@@ -229,7 +214,6 @@ const DATA = {
     { id: 'SOP-DOC-TF-005', title: 'Technical Documentation', owner: 'jonas', covers: [], assessed: [] },
     { id: 'SOP-RA-CHG-007', title: 'Regulatory Change Monitoring', owner: 'jonas', covers: [], assessed: [] },
   ],
-
   // PAS: SOURCE illustrative people, all names fictional
   // PAS: TODO confirm that Philips calls the function "Q&R"
   people: {
@@ -240,7 +224,6 @@ const DATA = {
     lukas: { name: 'Lukas Meyer', role: 'Supplier Quality' },
     tobias: { name: 'Tobias Kern', role: 'R&D Battery / Hardware Lead' },
   },
-
   // Evidence cards. excerpt: null means the exact text still has to be pasted in.
   evidence: {
     // PAS: SOURCE public philips.lv product page, retrieved 4 Nov 2026
@@ -287,9 +270,7 @@ const LEVEL_LABEL = {
   green: 'Done',
 };
 
-function daysLeft(iso) {
-  return Math.round((Date.parse(iso) - Date.parse(DATA.today)) / 86400000);
-}
+function daysLeft(iso) { return Math.round((Date.parse(iso) - Date.parse(DATA.today)) / 86400000); }
 
 // PAS: WHY dates already passed show "overdue" instead of a negative number
 function deadlineChip(iso) {
@@ -297,9 +278,7 @@ function deadlineChip(iso) {
   return days < 0 ? '<span class="chip overdue">overdue</span>' : `<span class="chip">${days} days</span>`;
 }
 
-function sopCovering(reqId) {
-  return DATA.sops.find(s => s.covers.includes(reqId));
-}
+function sopCovering(reqId) { return DATA.sops.find(s => s.covers.includes(reqId)); }
 
 // PAS: SIMULATED the "AI call" is a fixed rule plus fixed reasoning text, no model call
 function aiCall(p, r) {
@@ -400,9 +379,7 @@ function suggestOwner(c) {
 }
 
 // Evidence shown on a case: the product fact, the regulation text, and the SOP search
-function productEvidenceId(p) {
-  return p.evidence || 'ev-' + p.id;
-}
+function productEvidenceId(p) { return p.evidence || 'ev-' + p.id; }
 
 function evidenceIds(c) {
   const p = product(c.productId);
@@ -489,34 +466,18 @@ function resetDemo() {
   render();
 }
 
-function allCases() {
-  return Object.values(state.cases);
-}
-
-function plural(count, word) {
-  return `${count} ${word}${count === 1 ? '' : 's'}`;
-}
-
-function caseName(c) {
-  return `${product(c.productId).name} × ${c.reqId}`;
-}
+function allCases() { return Object.values(state.cases); }
+function plural(count, word) { return `${count} ${word}${count === 1 ? '' : 's'}`; }
+function caseName(c) { return `${product(c.productId).name} × ${c.reqId}`; }
 
 function addLog(actor, text) {
   const time = new Date().toLocaleTimeString('en-GB');
   state.log.unshift({ time, actor, text });
 }
 
-function product(id) {
-  return DATA.products.find(p => p.id === id);
-}
-
-function requirement(id) {
-  return DATA.requirements.find(r => r.id === id);
-}
-
-function personName(id) {
-  return id ? DATA.people[id].name : 'nobody';
-}
+function product(id) { return DATA.products.find(p => p.id === id); }
+function requirement(id) { return DATA.requirements.find(r => r.id === id); }
+function personName(id) { return id ? DATA.people[id].name : 'nobody'; }
 
 function fmtDate(iso) {
   return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
@@ -547,11 +508,7 @@ function renderIntake() {
   const affected = DATA.products.filter(p => p.hasBattery).length;
   const cat = DATA.catalogue;
   const rows = DATA.products.map(p => `
-    <tr>
-      <td>${p.name}</td>
-      <td>${p.sku ? p.sku + ' ' + badge('P') : '<span class="muted">not matched</span>'}</td>
-      <td>${p.battery} ${badge(p.batteryTag)}</td>
-    </tr>`).join('');
+    <tr><td>${p.name}</td><td>${p.sku ? p.sku + ' ' + badge('P') : '<span class="muted">not matched</span>'}</td><td>${p.battery} ${badge(p.batteryTag)}</td></tr>`).join('');
   return `
     <div class="label">Ambulance · what just came in?</div>
     <h1>Intake</h1>
@@ -561,16 +518,14 @@ function renderIntake() {
         <div class="label">Regulatory alert · ${DATA.regulation.code}</div>
         <h2>${DATA.regulation.name}</h2>
         <div class="row"><b>Applicability detected</b> ${badge('S')}</div>
-        <div class="big">${affected} of ${total}</div>
-        <div>products affected</div>
+        <div class="big">${affected} of ${total}</div><div>products affected</div>
         <p class="small muted">Next obligations effective ${fmtDate(nextObligation())}</p>
         <button class="btn" onclick="startTriage()">Start triage</button>
       </div>
       <div class="card">
         <div class="label">Regulatory alert · ${DATA.otherAlert.name} ${badge('I')}</div>
         <h2>Not applicable</h2>
-        <div class="big">0 of ${total}</div>
-        <div>products affected</div>
+        <div class="big">0 of ${total}</div><div>products affected</div>
         <p class="small muted">${DATA.otherAlert.reason}</p>
       </div>
     </div>
@@ -578,9 +533,7 @@ function renderIntake() {
       <div class="label">Product sync · ${cat.site} · ${cat.date}</div>
       <h2>${total} products from ${cat.site}, duplicates removed</h2>
       <p class="small muted">From a catalogue scrape of ${cat.scraped} products in ${cat.categories} top-level categories: the patient monitoring products, with their battery facts.</p>
-      <div class="scroll"><table class="list">
-        <tr><th>Product</th><th>SKU</th><th>Battery</th></tr>${rows}
-      </table></div>
+      <div class="scroll"><table class="list"><tr><th>Product</th><th>SKU</th><th>Battery</th></tr>${rows}</table></div>
     </div>`;
 }
 
@@ -592,9 +545,7 @@ function startTriage() {
 // ---- Screen 2 · Triage board: does it apply, how ready are we?
 
 // "Needs my decision": open cases that Anke has neither confirmed nor handed to someone
-function needsMyDecision(c) {
-  return c.colour !== 'green' && !c.confirmed && !c.owner;
-}
+function needsMyDecision(c) { return c.colour !== 'green' && !c.confirmed && !c.owner; }
 
 function initials(personId) {
   if (!personId) return '';
@@ -625,12 +576,8 @@ function renderTriage() {
     });
   });
   const queue = caseGroups().map(g => `
-    <div class="row" style="padding: 4px 0">
-      <span class="lv lv-${g.colour}"></span>
-      <a href="#case/${g.cases[0].id}">${g.label}</a>
-      <span class="small muted">${LEVEL_LABEL[g.colour]} · ${plural(g.cases.length, 'case')}</span>
-      ${groupDeadline(g)}
-    </div>`).join('');
+    <div class="row" style="padding: 4px 0"><span class="lv lv-${g.colour}"></span><a href="#case/${g.cases[0].id}">${g.label}</a>
+      <span class="small muted">${LEVEL_LABEL[g.colour]} · ${plural(g.cases.length, 'case')}</span> ${groupDeadline(g)}</div>`).join('');
   return `
     <div class="label">Triage · does it apply, how ready are we?</div>
     <h1>Triage board</h1>
@@ -643,8 +590,7 @@ function renderTriage() {
       </div>
       <div class="scroll"><table class="matrix"><tr><th>Product</th>${head}</tr>${body}</table></div>
     </div>
-    <div class="card">
-      <div class="label">Queue · sorted by colour, then deadline</div>
+    <div class="card"><div class="label">Queue · sorted by colour, then deadline</div>
       ${queue || '<p class="muted">Nothing open.</p>'}
     </div>`;
 }
@@ -702,30 +648,24 @@ function renderCase(id) {
       ${c.signedBy ? `<span class="muted">· not applicable signed by ${c.signedBy}</span>` : ''}
     </div>
     <div class="grid" style="margin-top: 16px">
-      <div class="card">
-        <div class="label">Product facts</div>
+      <div class="card"><div class="label">Product facts</div>
         <dl class="form">
           <dt>SKU</dt><dd>${p.sku ? p.sku + ' ' + badge('P') : 'not matched'}</dd>
           <dt>Use</dt><dd>${p.use} ${badge(p.sku ? 'P' : 'A')}</dd>
           <dt>Battery</dt><dd>${p.battery} ${badge(p.batteryTag)}</dd>${changeable}
         </dl>
       </div>
-      <div class="card">
-        <div class="label">Requirement · ${r.article}</div>
+      <div class="card"><div class="label">Requirement · ${r.article}</div>
         <p>${r.plain} ${badge('R')}</p>
         <p class="small">Effective ${fmtDate(r.from)} ${deadlineChip(r.from)}</p>
       </div>
     </div>
-    <div class="card sim">
-      <div class="label">AI reasoning ${badge('S')}</div>
+    <div class="card sim"><div class="label">AI reasoning ${badge('S')}</div>
       <p>${c.ai.reasoning}</p>
       <p class="small">AI call: <span class="lv lv-${c.ai.colour}"></span> ${LEVEL_LABEL[c.ai.colour]} · confidence <b>${c.ai.confidence}</b></p>
     </div>
     ${sopIds.length ? `<div class="card"><div class="label">SOP search</div>${sopIds.map(evidenceHtml).join('')}</div>` : ''}
-    <div class="card">
-      <div class="label">Evidence</div>
-      ${otherIds.map(evidenceHtml).join('')}
-    </div>
+    <div class="card"><div class="label">Evidence</div>${otherIds.map(evidenceHtml).join('')}</div>
     ${decisionHtml(c, allChecked, `${checkedCount} of ${ids.length} evidence cards checked.`)}`;
 }
 
@@ -757,10 +697,8 @@ function decisionHtml(c, allChecked, checkedText) {
         ${changeRow}
         <dt>Override</dt>
         <dd>
-          <textarea id="override-reason" placeholder="Written reason (required)"
-            oninput="document.getElementById('override-btn').disabled = !this.value.trim()"></textarea>
-          <button id="override-btn" class="btn ghost" disabled onclick="overrideCase('${c.id}')">
-            ${notApplicable ? 'Override: it applies' : 'Override: not applicable'}</button>
+          <textarea id="override-reason" placeholder="Written reason (required)" oninput="document.getElementById('override-btn').disabled = !this.value.trim()"></textarea>
+          <button id="override-btn" class="btn ghost" disabled onclick="overrideCase('${c.id}')">${notApplicable ? 'Override: it applies' : 'Override: not applicable'}</button>
         </dd>
       </dl>
     </div>`;
@@ -867,11 +805,8 @@ function groupHtml(g) {
   if (isOpen && g.colour === 'greenOutline') panel = signOffHtml(g);
   return `
     <div class="card">
-      <div class="row">
-        <span class="lv lv-${g.colour}"></span><b>${g.label}</b>
-        <span class="small muted">${LEVEL_LABEL[g.colour]} · ${plural(g.cases.length, 'case')}</span>
-        ${groupDeadline(g)}
-      </div>
+      <div class="row"><span class="lv lv-${g.colour}"></span><b>${g.label}</b>
+        <span class="small muted">${LEVEL_LABEL[g.colour]} · ${plural(g.cases.length, 'case')}</span> ${groupDeadline(g)}</div>
       <p class="small muted">${products.join(', ')}</p>
       <div class="row">
         <span>Suggested: <b>${personName(suggestion.owner)}</b> · ${suggestion.reason}</span>
@@ -897,12 +832,9 @@ function sopStarterHtml(r) {
       <div class="label">New-SOP starter · AI draft, not approved ${badge('S')}</div>
       <dl class="form">
         <dt>Action</dt>
-        <dd><select onchange="setStarterMode('${r.id}', this.value)">
-          <option value="extend" ${mode === 'extend' ? 'selected' : ''}>Extend ${s.extendSop}</option>
-          <option value="create" ${mode === 'create' ? 'selected' : ''}>Create new ${s.newSop}</option>
-        </select></dd>
-        <dt>Owner</dt><dd>${personName(s.owner)}</dd>
-        <dt>Approver</dt><dd>${personName(s.approver)}</dd>
+        <dd><select onchange="setStarterMode('${r.id}', this.value)"><option value="extend" ${mode === 'extend' ? 'selected' : ''}>Extend ${s.extendSop}</option>
+          <option value="create" ${mode === 'create' ? 'selected' : ''}>Create new ${s.newSop}</option></select></dd>
+        <dt>Owner</dt><dd>${personName(s.owner)}</dd><dt>Approver</dt><dd>${personName(s.approver)}</dd>
         ${outline}
       </dl>
       ${action}
@@ -921,16 +853,10 @@ function groupEvidenceIds(g) {
 function signOffHtml(g) {
   const ids = groupEvidenceIds(g);
   const allChecked = ids.every(id => state.checked[id]);
-  return `
-    <div style="margin-top: 12px">
-      ${ids.map(evidenceHtml).join('')}
+  return `<div style="margin-top: 12px">${ids.map(evidenceHtml).join('')}
       <button class="btn" ${allChecked ? '' : 'disabled'} onclick="signGroup('${g.key}')">Sign off ${plural(g.cases.length, 'case')} as Jonas Richter (simulated)</button>
       ${allChecked ? '' : '<span class="small muted">Tick every card to unlock.</span>'}
     </div>`;
-}
-
-function findGroup(key) {
-  return caseGroups().find(g => g.key === key);
 }
 
 function toggleGroup(key) {
@@ -939,7 +865,7 @@ function toggleGroup(key) {
 }
 
 function assignGroup(key, personId) {
-  const g = findGroup(key);
+  const g = caseGroups().find(group => group.key === key);
   g.cases.forEach(c => { c.owner = personId || null; });
   addLog('Anke Weber', `Routed ${plural(g.cases.length, 'case')} (${g.label}) to ${personName(personId)}`);
   render();
@@ -952,9 +878,7 @@ function routeAllRed() {
   render();
 }
 
-function setStarterMode(reqId, mode) {
-  state.starterMode[reqId] = mode;
-}
+function setStarterMode(reqId, mode) { state.starterMode[reqId] = mode; }
 
 function requestSop(reqId) {
   const s = requirement(reqId).starter;
@@ -966,7 +890,7 @@ function requestSop(reqId) {
 }
 
 function signGroup(key) {
-  const g = findGroup(key);
+  const g = caseGroups().find(group => group.key === key);
   signOff(g.cases);
   state.openGroup = null;
   render();
@@ -980,13 +904,12 @@ function renderHandover() {
   const unsigned = cases.filter(c => c.colour === 'greenOutline').length;
   // PAS: DEMO the handover stays locked until every case has an owner and every "not applicable" is signed
   const locked = unowned > 0 || unsigned > 0;
-  const outputs = locked ? '' : erCasesHtml() + sopRequestsHtml() + routedHtml();
+  const outputs = locked ? '' : erCasesHtml() + sopRequestsHtml();
   return `
     <div class="label">Emergency Room · handover</div>
     <h1>Handover</h1>
     <p class="lead">Triage ends here. Orange cases go to the Detailed SOP Compliance Assessment with the scope pre-filled; red cases leave as SOP requests or R&D changes.</p>
-    <div class="card">
-      <div class="label">Gate</div>
+    <div class="card"><div class="label">Gate</div>
       <p>${unowned === 0 ? '✓' : '✗'} Every open case has an owner <span class="muted">(${unowned} without)</span></p>
       <p>${unsigned === 0 ? '✓' : '✗'} Every "not applicable" is signed <span class="muted">(${unsigned} waiting)</span></p>
       ${locked ? '<a class="btn" href="#routing">Finish in routing</a>' : '<b>Handover unlocked.</b>'}
@@ -1010,8 +933,7 @@ function erCasesHtml() {
     const products = [...new Set(cases.map(c => product(c.productId).name))];
     const owners = [...new Set(cases.map(c => personName(c.owner)))];
     return `
-      <div class="card">
-        <div class="label">Detailed Assessment · Overview · pre-filled</div>
+      <div class="card"><div class="label">Detailed Assessment · Overview · pre-filled</div>
         <dl class="form">
           <dt>Type</dt><dd>SOP Compliance Assessment</dd>
           <dt>Regulatory documents</dt><dd>${DATA.regulation.code}: ${reqs.map(r => `${r.article} ${r.title}`).join(', ')}</dd>
@@ -1032,20 +954,6 @@ function sopRequestsHtml() {
     ? `<table class="list"><tr><th>Owner</th><th>Request</th><th>Requirement</th><th>Approver</th></tr>${rows}</table>`
     : '<p class="muted">No SOP requests yet. Open the new-SOP starter on a red group in Routing.</p>';
   return `<h2>SOP requests per owner</h2><div class="card">${body}</div>`;
-}
-
-function routedHtml() {
-  const rows = caseGroups().filter(g => g.colour === 'red' || g.colour === 'purple').map(g => {
-    const owners = [...new Set(g.cases.map(c => personName(c.owner)))];
-    return `
-      <tr><td><span class="lv lv-${g.colour}"></span> ${g.label}</td><td>${owners.join(', ')}</td>
-      <td>${g.cases.length}</td><td>${suggestOwner(g.cases[0]).reason}</td></tr>`;
-  }).join('');
-  return `
-    <h2>Other routed cases</h2>
-    <div class="card"><table class="list">
-      <tr><th>Case group</th><th>Owner</th><th>Cases</th><th>Why</th></tr>${rows}
-    </table></div>`;
 }
 
 // PAS: WHY the audit log: signed decisions are the evidence for "why did you decide this does not apply?"
