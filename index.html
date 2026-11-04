@@ -490,6 +490,8 @@ function freshState() {
     picks: {},            // routing key → team picked but not yet routed
     teamsOpen: null,      // routing key whose full team list is open
     selected: {},         // case id → true when its row is ticked for a bulk action
+    showHandled: false,   // requirement view: show the cases already handed over
+    flash: '',            // one-line confirmation of the last action
     starterMode: {},      // requirement id → 'extend' or 'create'
     sopRequests: [],      // requests created from the new-SOP starter
     mineOnly: false,      // "Only what needs me" filter
@@ -806,7 +808,9 @@ function requirementHtml(r) {
   const cases = allCases().filter(c => c.reqId === r.id);
   const affected = cases.filter(c => product(c.productId).hasBattery).length;
   const sop = r.sopSearch ? ` SOP search: closest match ${r.sopSearch.closest}, ${r.sopSearch.finding}` : '';
-  const sections = requirementGroups(r.id, true).map(sectionHtml).join('');
+  // PAS: DEMO routed or finished products leave the open list and move to "Handed over", grouped by team
+  const sections = requirementGroups(r.id, true).map(g => ({ ...g, cases: g.cases.filter(needsMe) })).filter(g => g.cases.length).map(sectionHtml).join('');
+  const handed = handedOverHtml(cases.filter(c => !needsMe(c)));
   const needsStarter = r.starter && cases.some(c => c.colour === 'red' && !c.productChange);
   return `
     <div class="card">
@@ -818,18 +822,38 @@ function requirementHtml(r) {
     ${aiBlock(r.portable === 'applies' ? `Applies to ${affected} of ${cases.length} products` : 'Not applicable to any product',
       `<p>${r.portable === 'applies' ? `Applies to portable batteries; ${affected} products have one.` : `Only covers ${r.scopeText}; our products have portable batteries or none.`}${sop}</p>`)}
     <div class="card">
-      <h3>Products · every product once, grouped by outcome</h3>
+      <h3>Products that need you · grouped by outcome</h3>
+      ${state.flash ? `<p><b>✓ ${state.flash}</b></p>` : ''}
       ${bulkBarHtml()}
-      <table class="list">${caseTableHead('Product')}${sections || '<tr><td colspan="6" class="muted">Nothing here needs you.</td></tr>'}</table>
+      <table class="list">${caseTableHead('Product')}${sections || '<tr><td colspan="6" class="muted">Nothing here needs you. Every product is handed over or done.</td></tr>'}${handed}</table>
       ${teamsPanelHtml()}
     </div>
     ${needsStarter ? `<div class="card">${sopStarterHtml(r)}</div>` : ''}
     ${commentsHtml(r.id, 'Comments on ' + r.id)}`;
 }
 
+// Cases that no longer need me, grouped by where they are now: with a team, or done
+function handedOverHtml(cases) {
+  if (!cases.length) return '';
+  const toggle = `<tr class="section"><td colspan="6"><button class="btn ghost small" onclick="toggleHandled()">${state.showHandled ? 'Hide' : 'Show'} ${plural(cases.length, 'product')} handed over or done</button></td></tr>`;
+  if (!state.showHandled) return toggle;
+  const groups = {};
+  cases.forEach(c => {
+    const where = c.colour === 'green' ? 'Done' : `With ${team(c.team).name}`;
+    groups[where] = (groups[where] || []).concat(c);
+  });
+  return toggle + Object.entries(groups).map(([where, list]) => `
+    <tr class="section"><td></td><td colspan="5"><b>${where}</b> <span class="small muted">${plural(list.length, 'product')}</span></td></tr>
+    ${list.map(c => caseRowHtml(c, 'product')).join('')}`).join('');
+}
+
+function toggleHandled() {
+  state.showHandled = !state.showHandled;
+  render();
+}
+
 function sectionHtml(g) {
-  const shown = state.mineOnly ? g.cases.filter(needsMe) : g.cases;
-  if (!shown.length) return '';
+  const shown = g.cases;
   const suggestion = g.colour === 'green' ? null : suggestTeam(g.cases[0]);
   const unrouted = g.cases.filter(c => !c.routedBy);
   const allTicked = shown.every(c => state.selected[c.id]);
@@ -998,6 +1022,7 @@ function routeList(cases, teamId, assignee) {
   state.teamsOpen = null;
   state.selected = {};
   addLog(`Routed ${cases.map(caseName).join(', ')} to ${team(teamId).name}${assignee ? ' (' + person(assignee).name + ')' : ''}`);
+  state.flash = `Routed ${plural(cases.length, 'product')} to ${team(teamId).name}. They moved to "Handed over".`;
   render();
 }
 
@@ -1050,6 +1075,7 @@ function signOff(cases) {
     c.signed = { by: state.user, at: now() };
     addLog(`${caseName(c)}: signed "not applicable" (${evidenceNote(c)})`);
   });
+  state.flash = `Signed "not applicable" for ${plural(cases.length, 'product')}. They moved to "Done".`;
   state.selected = {};
   render();
 }
@@ -1304,6 +1330,7 @@ function render() {
 
 window.addEventListener('hashchange', () => {
   state.selected = {};
+  state.flash = '';
   render();
   window.scrollTo(0, 0);
 });
