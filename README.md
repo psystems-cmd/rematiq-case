@@ -6,17 +6,21 @@ Built for the REMATIQ × Philips case (AI Deployment Strategist interview, 5 Nov
 
 ## What it shows
 
-The demo follows Anke Weber (Q&R Manager, fictional) through five screens:
+The demo follows Anke Weber (Q&R Manager, fictional, shown top right as the logged-in user) through three screens:
 
 | Screen | Hash | One sentence |
 | --- | --- | --- |
-| Intake | `#intake` | A regulatory alert for the EU Battery Regulation, 9 of 12 products affected, plus the product sync from philips.de. |
-| Triage board | `#triage` | Every product against requirements R1 to R8, coloured by readiness, with deadline chips and a "Needs my decision" filter. |
-| Case review | `#case/P1-R4` | One product × one requirement: facts, AI reasoning, SOP search, evidence cards; Confirm stays locked until every card is ticked. |
-| Routing | `#routing` | Open cases grouped by reason, each with a suggested owner; red groups open the new-SOP starter, "not applicable" groups get signed off. |
-| Handover | `#handover` | Locked until every case is owned and every "not applicable" is signed; then ER cases pre-filled for the Detailed Assessment, SOP requests, and the audit log. |
+| Regulatory alert | `#alert` | What came in (EU Battery Regulation), what it asks (8 obligations with dates) and which 12 products were checked, each with a link to its source. |
+| Assess and route | `#assess/R4` | Requirements on the left, grouped by topic; pick one to see the AI call, the open decisions grouped by outcome, and every product. |
+| Case review | `#assess/R4/P1` | One product × one requirement: facts with source links, AI reasoning, evidence cards; Confirm stays locked until every card is ticked. |
+| Handover | `#handover` | Locked until every case is routed and every "not applicable" is signed; then the pre-filled Detailed Assessment overview, follow-up per team, and the audit log. |
 
-Colours: red = applies, no SOP · orange = SOP exists, not assessed · purple = unclear, needs expert · green outline = not applicable, sign-off needed · green = done.
+- **AI vs human:** blue blocks and `✦ AI` chips are simulated AI output; dark blocks and `✓ Human` chips are decisions by a named person. A legend sits under the top bar on every screen.
+- **Routing to teams:** each open decision suggests a team with the reason. Team cards show function, lead, members, SOPs owned, open cases and turnaround; "Compare all teams" shows them side by side. A case goes to a team queue or a named person.
+- **Sign-off:** only Regulatory Affairs can sign "not applicable". Switch to Jonas Richter in the account menu (top right) to sign.
+- **Comments:** on every requirement and every case; they also go into the audit log.
+
+Colours: red = applies, no SOP · orange = SOP exists, not assessed · purple = unclear, needs expert · green outline = not applicable, needs sign-off · green = done.
 
 ## How to open
 
@@ -37,8 +41,9 @@ Everything is in `index.html`, in this order: styles, data, rules, state and hel
 | Data | Tag | Source |
 | --- | --- | --- |
 | Product names and SKUs | P (Public) | philips.de catalogue scrape, 4 Nov 2026 (1,270 products, 14 categories) |
-| X3 / MX100 battery (Li-ion 10.8 V, 21.6 Wh) | P | [philips.lv, HC989803196521](https://www.philips.lv/healthcare/product/HC989803196521/intellivue-x3-mx100-battery) |
-| Efficia user-changeable batteries | P | Efficia patient monitoring brochure |
+| X3 / MX100 battery (battery pack, 5 h capacity) | P | philips.co.uk product pages [HC867030](https://www.philips.co.uk/healthcare/product/HC867030), [HC867033](https://www.philips.co.uk/healthcare/product/HC867033) |
+| Efficia lithium battery | P | [philips.de HC863304](https://www.philips.de/healthcare/product/HC863304) (German, translated) |
+| Efficia user-changeable batteries | P | Efficia patient monitoring brochure (link still to add) |
 | Battery facts for MX750, MX850, MX40, Avalon CL, EarlyVue VS30, MR400, MR Portal 5000 | A (Assumed) | Product family; no public source matched yet |
 | Art. 13(1), 13(4), 14(1) excerpts | R (Regulation) | Reg. (EU) 2023/1542, as quoted in REMATIQ's demo |
 | Art. 13(6) excerpt | R | Reg. (EU) 2023/1542, matches several secondary sources; verify |
@@ -46,8 +51,8 @@ Everything is in `index.html`, in this order: styles, data, rules, state and hel
 | Requirement dates | R | Regulation timeline |
 | SOP library (7 SOPs) and SOP search results | I (Illustrative) | Invented for the demo, not Philips data |
 | People (Anke, Jonas, Mei, Sara, Lukas, Tobias) | I | Fictional |
-| "Not applicable" Toy Safety alert | I | Illustrative example only |
-| AI reasoning, confidence, SOP outlines, Jonas's sign-off | S (Simulated) | Fixed rules and text in the page; no model call |
+| Teams, members, turnaround times | I | Invented org structure |
+| AI reasoning, confidence, SOP search, routing suggestions, SOP outlines | ✦ AI (simulated) | Fixed rules and text in the page; no model call |
 
 ## Open PAS: TODO items
 
@@ -59,9 +64,10 @@ From `index.html` (search for `PAS: TODO`):
 - [ ] Paste the exact Art. 77 text from EUR-Lex.
 - [ ] Confirm the article for producer registration and take-back (shown as "Art. 55 ff. (verify)") and paste its text.
 - [ ] Verify the Art. 13(6) QR code wording against EUR-Lex.
-- [ ] Check whether the X3 battery, sold as a spare part, counts as user-replaceable under Art. 11 (it would turn R5 green for X3 and MX100).
+- [ ] Check whether the X3/MX100 battery pack counts as user-replaceable under Art. 11 (it would turn R5 green for both).
+- [ ] Confirm that EarlyVue VS30 is a spot-check device (it makes VS30 the one R&D product-change case).
 - [ ] Link the Efficia brochure PDF directly instead of the catalogue page.
-- [ ] Confirm that Philips calls the function "Q&R".
+- [ ] Confirm that Philips calls the function "Q&R" and how the teams are really cut.
 - [ ] Generic: placeholder evidence cards show until the EUR-Lex text is pasted into `DATA.evidence`.
 
 Also from the PRD: match SKUs for MX750, MX850, Avalon CL and EarlyVue VS30, or keep them marked "not matched".
