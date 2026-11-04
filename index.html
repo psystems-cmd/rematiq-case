@@ -107,6 +107,174 @@ dl.form dd { margin: 0; }
 
 <script>
 // PAS: SECTION 2 · Data
+// PAS: WHY all data sits in one constant: the page works from disk, and a product or SOP can change without touching the rules
+// Source tags: P = public catalogue, R = regulation text, A = assumed, I = illustrative, S = simulated
+const DATA = {
+  today: '2026-11-04',
+
+  // PAS: SOURCE Regulation (EU) 2023/1542 on EUR-Lex
+  regulation: { code: 'EU Regulation 2023/1542', name: 'EU Battery Regulation', url: 'https://eur-lex.europa.eu/eli/reg/2023/1542/oj' },
+
+  // PAS: SOURCE illustrative second alert, only there to show what "Not applicable" looks like
+  otherAlert: { name: 'EU Toy Safety Regulation', reason: 'None of the 12 products is a toy.' },
+
+  // PAS: SOURCE public philips.de catalogue scrape, 4 Nov 2026
+  catalogue: { site: 'philips.de', date: '4 Nov 2026', scraped: '1,270', categories: 14 },
+
+  // Products are listed in board order. sku: null means no catalogue match yet.
+  // batteryTag says where the battery fact comes from (P public, A assumed).
+  products: [
+    // PAS: SOURCE public philips.de catalogue (SKU) and philips.lv battery page (battery)
+    // PAS: TODO the X3 battery is sold as a spare part; check whether it counts as user-replaceable under Art. 11
+    { id: 'P1', name: 'IntelliVue X3', sku: 'HC867030', category: 'Continuous monitoring', use: 'Continuous, transport',
+      battery: 'Li-ion 10.8 V, 21.6 Wh, rechargeable', batteryTag: 'P', hasBattery: true, userChangeable: false, continuousUse: true, evidence: 'ev-x3-battery' },
+    // PAS: SOURCE public philips.de catalogue; same battery as X3 per the philips.lv battery page
+    { id: 'P2', name: 'IntelliVue MX100', sku: 'HC867033', category: 'Continuous monitoring', use: 'Continuous',
+      battery: 'Same Li-ion battery as X3', batteryTag: 'P', hasBattery: true, userChangeable: false, continuousUse: true, evidence: 'ev-x3-battery' },
+    // PAS: SOURCE public philips.de catalogue and Efficia patient monitoring brochure
+    { id: 'P3', name: 'Efficia CM150', sku: 'HC863304', category: 'Continuous monitoring', use: 'Continuous',
+      battery: 'Rechargeable, user-changeable', batteryTag: 'P', hasBattery: true, userChangeable: true, continuousUse: true, evidence: 'ev-efficia-battery' },
+    // PAS: SOURCE assumed, no catalogue match yet
+    { id: 'P9', name: 'IntelliVue MX750', sku: null, category: 'Continuous monitoring', use: 'Continuous, bedside',
+      battery: 'Built-in backup battery', batteryTag: 'A', hasBattery: true, userChangeable: false, continuousUse: true },
+    // PAS: SOURCE assumed, no catalogue match yet
+    { id: 'P10', name: 'IntelliVue MX850', sku: null, category: 'Continuous monitoring', use: 'Continuous, bedside',
+      battery: 'Built-in backup battery', batteryTag: 'A', hasBattery: true, userChangeable: false, continuousUse: true },
+    // PAS: SOURCE public philips.de catalogue (SKU); battery assumed
+    { id: 'P4', name: 'IntelliVue MX40', sku: 'HC865351', category: 'Wearable and fetal', use: 'Patient-worn',
+      battery: 'Battery-powered', batteryTag: 'A', hasBattery: true, userChangeable: false, continuousUse: true },
+    // PAS: SOURCE assumed, no catalogue match yet
+    { id: 'P11', name: 'Avalon CL', sku: null, category: 'Wearable and fetal', use: 'Fetal, cableless',
+      battery: 'Rechargeable transducers', batteryTag: 'A', hasBattery: true, userChangeable: false, continuousUse: true },
+    // PAS: SOURCE assumed, no catalogue match yet; spot-check use is also assumed
+    { id: 'P12', name: 'EarlyVue VS30', sku: null, category: 'Vital signs', use: 'Vital signs, spot check',
+      battery: 'Rechargeable', batteryTag: 'A', hasBattery: true, userChangeable: false, continuousUse: false },
+    // PAS: SOURCE public philips.de catalogue (SKU); battery assumed
+    { id: 'P5', name: 'Expression MR400', sku: 'HC866185', category: 'MR monitoring', use: 'MR, continuous',
+      battery: 'Rechargeable', batteryTag: 'A', hasBattery: true, userChangeable: false, continuousUse: true },
+    // PAS: SOURCE public philips.de catalogue (SKU); "no battery" assumed
+    { id: 'P6', name: 'MR Patient Care Portal 5000', sku: '866162', category: 'MR monitoring', use: 'MR',
+      battery: 'Mains-powered, no battery', batteryTag: 'A', hasBattery: false },
+    // PAS: SOURCE public philips.de catalogue
+    { id: 'P7', name: 'PIC iX', sku: 'HCNOCTN171', category: 'Central monitoring and mounts', use: 'Central monitoring software',
+      battery: 'Software, no battery', batteryTag: 'P', hasBattery: false },
+    // PAS: SOURCE public philips.de catalogue
+    { id: 'P8', name: 'Monitor mount', sku: 'HC989803195571', category: 'Central monitoring and mounts', use: 'Stands and mounts',
+      battery: 'No battery', batteryTag: 'P', hasBattery: false },
+  ],
+
+  // portable: does the requirement apply to portable batteries at all?
+  // sopSearch: the simulated SOP search result (illustrative SOP library)
+  // starter: the new-SOP starter offered when no SOP covers the requirement
+  requirements: [
+    // PAS: SOURCE Reg. (EU) 2023/1542 Art. 13(4)
+    { id: 'R1', short: 'Collection symbol', title: 'Separate-collection symbol', article: 'Art. 13(4)', from: '2025-08-18', portable: 'applies',
+      plain: 'Every battery carries the symbol for separate collection (crossed-out wheelie bin).', evidence: 'ev-art13-4',
+      sopSearch: { closest: 'SOP-LAB-EU-BAT-001 §4', finding: 'covers the collection symbol; detailed assessment passed.' } },
+    // PAS: SOURCE Reg. (EU) 2023/1542, producer obligations
+    // PAS: TODO confirm the article for producer registration (Art. 55?) before showing it
+    { id: 'R2', short: 'Producer registration', title: 'Producer registration and take-back', article: 'Art. 55 ff. (verify)', from: '2025-08-18', portable: 'applies',
+      plain: 'Register as a producer in every EU country where the battery is sold, and organise take-back of waste batteries.', evidence: 'ev-art55',
+      sopSearch: { closest: 'SOP-ENV-EPR-002 §2', finding: 'covers registration and take-back; detailed assessment passed.' } },
+    // PAS: SOURCE Reg. (EU) 2023/1542 Art. 13(1)
+    { id: 'R3', short: 'General label', title: 'General label', article: 'Art. 13(1)', from: '2026-08-18', portable: 'applies',
+      plain: 'The battery label shows the general information listed in Annex VI, Part A.', evidence: 'ev-art13-1',
+      sopSearch: { closest: 'SOP-LAB-EU-BAT-001 §5', finding: 'mentions the general label; not yet checked clause by clause.' } },
+    // PAS: SOURCE Reg. (EU) 2023/1542 Art. 13(6)
+    { id: 'R4', short: 'QR code', title: 'QR code', article: 'Art. 13(6)', from: '2027-02-18', portable: 'applies',
+      plain: 'Every battery carries a QR code as described in Annex VI, Part C.', evidence: 'ev-art13-6',
+      sopSearch: { closest: 'SOP-LAB-EU-BAT-001 §7', finding: 'no mention of QR code.' },
+      // PAS: SIMULATED SOP outline, an AI draft that nobody has approved
+      starter: { mode: 'extend', extendSop: 'SOP-LAB-EU-BAT-001', newSop: 'SOP-LAB-EU-BAT-QR', owner: 'mei', approver: 'jonas', outline: {
+        Purpose: 'Mark every battery placed on the EU market with a QR code from 18 Feb 2027.',
+        Scope: 'All portable batteries in Hospital Patient Monitoring products.',
+        Responsibilities: 'Labelling owner drafts the artwork; Regulatory Affairs approves; R&D confirms space on the battery.',
+        Procedure: '1. Define QR content per Annex VI Part C. 2. Add the QR code to the label artwork. 3. Verify it scans. 4. Release through label change control.',
+        Records: 'Label artwork, scan verification, change-control number.',
+      } } },
+    // PAS: SOURCE Reg. (EU) 2023/1542 Art. 11
+    { id: 'R5', short: 'Removability', title: 'User-removable and replaceable battery', article: 'Art. 11', from: '2027-02-18', portable: 'applies',
+      plain: 'End users can remove and replace the portable battery, unless an exemption applies.', evidence: 'ev-art11',
+      sopSearch: { closest: 'SOP-IFU-010 §3', finding: 'battery replacement steps only; SOP-DES-BAT-004 is silent on removability.' } },
+    // PAS: SOURCE Reg. (EU) 2023/1542 Art. 48, as amended by Reg. (EU) 2025/1561
+    { id: 'R6', short: 'Due diligence', title: 'Supply-chain due diligence', article: 'Art. 48', from: '2027-08-18', portable: 'applies',
+      plain: 'Companies above €40M turnover run a due-diligence policy for the raw materials in their batteries.', evidence: 'ev-art48',
+      sopSearch: { closest: 'SOP-SUP-QUA-003 §2', finding: 'general supplier checks only; no raw-material due diligence.' },
+      // PAS: SIMULATED SOP outline, an AI draft that nobody has approved
+      starter: { mode: 'create', extendSop: 'SOP-SUP-QUA-003', newSop: 'SOP-SUP-DD-008', owner: 'lukas', approver: 'jonas', outline: {
+        Purpose: 'Set up and run a battery due-diligence policy for raw materials from 18 Aug 2027.',
+        Scope: 'Suppliers of batteries and battery cells for Hospital Patient Monitoring products.',
+        Responsibilities: 'Supplier Quality runs the policy; Regulatory Affairs approves; Procurement collects supplier data.',
+        Procedure: '1. Map battery suppliers. 2. Collect raw-material origin data. 3. Assess supply-chain risk. 4. Act on findings and report.',
+        Records: 'Supplier map, risk assessment, third-party verification, annual report.',
+      } } },
+    // PAS: SOURCE Reg. (EU) 2023/1542 Art. 77
+    { id: 'R7', short: 'Battery passport', title: 'Battery passport', article: 'Art. 77', from: '2027-02-18', portable: 'not-applicable',
+      scopeText: 'EV, LMT and industrial batteries above 2 kWh',
+      plain: 'Each EV, LMT and industrial battery above 2 kWh gets a digital battery passport.', evidence: 'ev-art77' },
+    // PAS: SOURCE Reg. (EU) 2023/1542 Art. 14
+    { id: 'R8', short: 'State of health', title: 'State-of-health data', article: 'Art. 14', from: '2024-08-18', portable: 'not-applicable',
+      scopeText: 'stationary battery energy storage systems, LMT and EV batteries',
+      plain: 'The battery management system stores state-of-health data for stationary, LMT and EV batteries.', evidence: 'ev-art14' },
+  ],
+
+  // covers: requirements the SOP addresses; assessed: requirements a Detailed Assessment has already confirmed
+  sops: [
+    // PAS: SOURCE illustrative SOP library, not Philips data (all 7 rows)
+    { id: 'SOP-LAB-EU-BAT-001', title: 'Battery Labelling', owner: 'mei', covers: ['R1', 'R3'], assessed: ['R1'] },
+    { id: 'SOP-DES-BAT-004', title: 'Battery Design', owner: 'tobias', covers: [], assessed: [] },
+    { id: 'SOP-IFU-010', title: 'Instructions for Use', owner: 'mei', covers: [], assessed: [] },
+    { id: 'SOP-ENV-EPR-002', title: 'Producer Registration', owner: 'sara', covers: ['R2'], assessed: ['R2'] },
+    { id: 'SOP-SUP-QUA-003', title: 'Supplier Qualification', owner: 'lukas', covers: [], assessed: [] },
+    { id: 'SOP-DOC-TF-005', title: 'Technical Documentation', owner: 'jonas', covers: [], assessed: [] },
+    { id: 'SOP-RA-CHG-007', title: 'Regulatory Change Monitoring', owner: 'jonas', covers: [], assessed: [] },
+  ],
+
+  // PAS: SOURCE illustrative people, all names fictional
+  // PAS: TODO confirm that Philips calls the function "Q&R"
+  people: {
+    anke: { name: 'Anke Weber', role: 'Q&R Manager, Hospital Patient Monitoring' },
+    jonas: { name: 'Jonas Richter', role: 'Regulatory Affairs Specialist' },
+    mei: { name: 'Mei Lin', role: 'QM, Labelling & IFU SOP owner' },
+    sara: { name: 'Sara Okafor', role: 'QM, Environmental Compliance' },
+    lukas: { name: 'Lukas Meyer', role: 'Supplier Quality' },
+    tobias: { name: 'Tobias Kern', role: 'R&D Battery / Hardware Lead' },
+  },
+
+  // Evidence cards. excerpt: null means the exact text still has to be pasted in.
+  evidence: {
+    // PAS: SOURCE public philips.lv product page, retrieved 4 Nov 2026
+    'ev-x3-battery': { claim: 'X3 and MX100 have a rechargeable Li-ion battery', excerpt: 'Rechargeable lithium-ion battery … 10.8V/21.6 Wh',
+      location: 'philips.lv, HC989803196521', url: 'https://www.philips.lv/healthcare/product/HC989803196521/intellivue-x3-mx100-battery', tag: 'P', status: 'Verified' },
+    // PAS: SOURCE public Efficia patient monitoring brochure
+    // PAS: TODO link the Efficia brochure PDF directly instead of the catalogue page
+    'ev-efficia-battery': { claim: 'Efficia batteries are user-changeable', excerpt: 'User-changeable batteries',
+      location: 'Efficia patient monitoring brochure', url: 'https://www.philips.rs/healthcare/patient-monitoring', tag: 'P', status: 'Verified' },
+    // PAS: SOURCE regulation text as quoted in REMATIQ's demo
+    'ev-art13-4': { claim: 'Collection symbol is required', excerpt: 'From 18 August 2025, all batteries shall be marked with the symbol for separate collection…',
+      location: 'Reg. (EU) 2023/1542, Art. 13(4)', tag: 'R', status: 'Verbatim from REMATIQ demo' },
+    // PAS: SOURCE regulation text as quoted in REMATIQ's demo
+    'ev-art13-1': { claim: 'General label is required', excerpt: '…batteries shall bear a label containing the general information on batteries set out in Part A of Annex VI.',
+      location: 'Reg. (EU) 2023/1542, Art. 13(1)', tag: 'R', status: 'Verbatim from REMATIQ demo' },
+    // PAS: SOURCE regulation text, matches several secondary sources
+    // PAS: TODO verify Art. 13(6) wording against EUR-Lex
+    'ev-art13-6': { claim: 'QR code is required', excerpt: 'From 18 February 2027, all batteries shall be marked with a QR code as described in Part C of Annex VI.',
+      location: 'Reg. (EU) 2023/1542, Art. 13(6)', tag: 'R', status: 'Matches several sources; verify' },
+    // PAS: SOURCE regulation text as quoted in REMATIQ's demo
+    'ev-art14': { claim: 'State of health covers other battery types', excerpt: 'stationary battery energy storage systems, LMT batteries and electric vehicle batteries',
+      location: 'Reg. (EU) 2023/1542, Art. 14(1)', tag: 'R', status: 'Verbatim from REMATIQ demo' },
+    // PAS: TODO paste Art. 3 portable battery definition from EUR-Lex
+    'ev-art3': { claim: 'Definition of a portable battery', excerpt: null, location: 'Reg. (EU) 2023/1542, Art. 3', tag: 'R', status: 'To be copied' },
+    // PAS: TODO paste Art. 11(1) and 11(3) text from EUR-Lex
+    'ev-art11': { claim: 'Removability and its exemptions', excerpt: null, location: 'Reg. (EU) 2023/1542, Art. 11(1) and 11(3)', tag: 'R', status: 'To be copied' },
+    // PAS: TODO paste Art. 48 text (as amended by Reg. 2025/1561) from EUR-Lex
+    'ev-art48': { claim: 'Due-diligence obligation', excerpt: null, location: 'Reg. (EU) 2023/1542, Art. 48 (as amended by Reg. 2025/1561)', tag: 'R', status: 'To be copied' },
+    // PAS: TODO paste Art. 77 text from EUR-Lex
+    'ev-art77': { claim: 'Battery passport scope', excerpt: null, location: 'Reg. (EU) 2023/1542, Art. 77', tag: 'R', status: 'To be copied' },
+    // PAS: TODO paste the producer registration article text from EUR-Lex
+    'ev-art55': { claim: 'Producer registration and take-back', excerpt: null, location: 'Reg. (EU) 2023/1542, producer obligations', tag: 'R', status: 'To be copied' },
+  },
+};
 
 // PAS: SECTION 3 · Triage rules
 
@@ -114,6 +282,33 @@ dl.form dd { margin: 0; }
 function resetDemo() {
   location.hash = '#intake';
   render();
+}
+
+function product(id) {
+  return DATA.products.find(p => p.id === id);
+}
+
+function requirement(id) {
+  return DATA.requirements.find(r => r.id === id);
+}
+
+function personName(id) {
+  return id ? DATA.people[id].name : 'nobody';
+}
+
+function fmtDate(iso) {
+  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+}
+
+function esc(text) {
+  const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+  return String(text).replace(/[&<>"']/g, ch => map[ch]);
+}
+
+// PAS: WHY a source badge on every fact: real, assumed, illustrative and simulated data must look different
+function badge(tag) {
+  const names = { P: 'Public', R: 'Regulation', A: 'Assumed', I: 'Illustrative', S: 'Simulated' };
+  return `<span class="badge ${tag === 'S' ? 'sim' : ''}" title="Source: ${names[tag]}">${names[tag]}</span>`;
 }
 
 // PAS: SECTION 5 · Screens
