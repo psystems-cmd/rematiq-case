@@ -493,14 +493,69 @@ function badge(tag) {
 }
 
 // PAS: SECTION 5 · Screens
+// Each screen is one function that returns HTML. Buttons call the small action functions next to it.
 function placeholder(title) {
   return `<h1>${title}</h1><p class="lead">This screen comes in a later step.</p>`;
+}
+
+// ---- Screen 1 · Intake: what just came in?
+
+function nextObligation() {
+  const upcoming = DATA.requirements.filter(r => r.portable === 'applies' && daysLeft(r.from) >= 0);
+  return upcoming.map(r => r.from).sort()[0];
+}
+
+function renderIntake() {
+  const total = DATA.products.length;
+  const affected = DATA.products.filter(p => p.hasBattery).length;
+  const cat = DATA.catalogue;
+  const rows = DATA.products.map(p => `
+    <tr>
+      <td>${p.name}</td>
+      <td>${p.sku ? p.sku + ' ' + badge('P') : '<span class="muted">not matched</span>'}</td>
+      <td>${p.battery} ${badge(p.batteryTag)}</td>
+    </tr>`).join('');
+  return `
+    <div class="label">Ambulance · what just came in?</div>
+    <h1>Intake</h1>
+    <p class="lead">A new regulation arrives together with today's product data. Triage decides, for each product, whether it applies, how ready we are and who takes it next.</p>
+    <div class="grid">
+      <div class="card">
+        <div class="label">Regulatory alert · ${DATA.regulation.code}</div>
+        <h2>${DATA.regulation.name}</h2>
+        <div class="row"><b>Applicability detected</b> ${badge('S')}</div>
+        <div class="big">${affected} of ${total}</div>
+        <div>products affected</div>
+        <p class="small muted">Next obligations effective ${fmtDate(nextObligation())}</p>
+        <button class="btn" onclick="startTriage()">Start triage</button>
+      </div>
+      <div class="card">
+        <div class="label">Regulatory alert · ${DATA.otherAlert.name} ${badge('I')}</div>
+        <h2>Not applicable</h2>
+        <div class="big">0 of ${total}</div>
+        <div>products affected</div>
+        <p class="small muted">${DATA.otherAlert.reason}</p>
+      </div>
+    </div>
+    <div class="card">
+      <div class="label">Product sync · ${cat.site} · ${cat.date}</div>
+      <h2>${total} products from ${cat.site}, duplicates removed</h2>
+      <p class="small muted">From a catalogue scrape of ${cat.scraped} products in ${cat.categories} top-level categories: the patient monitoring products, with their battery facts.</p>
+      <div class="scroll"><table class="list">
+        <tr><th>Product</th><th>SKU</th><th>Battery</th></tr>${rows}
+      </table></div>
+    </div>`;
+}
+
+function startTriage() {
+  addLog('Anke Weber', `Started triage of ${DATA.regulation.code} for ${DATA.products.length} products`);
+  location.hash = '#triage';
 }
 
 // PAS: SECTION 6 · Router
 // PAS: WHY hash links: every screen has its own address so the presenter can jump, and it works from disk
 const SCREENS = {
-  intake: () => placeholder('Intake'),
+  intake: renderIntake,
   triage: () => placeholder('Triage board'),
   case: () => placeholder('Case review'),
   routing: () => placeholder('Routing'),
